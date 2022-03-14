@@ -1,6 +1,6 @@
 # need-cla
 
-[![Run Go tests](https://github.com/Progressive/need-cla/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Progressive/need-cla/actions/workflows/test.yml)
+[![Run Go tests](https://github.com/Progressive-Insurance/need-cla/actions/workflows/test.yml/badge.svg)](https://github.com/Progressive-Insurance/need-cla/actions/workflows/test.yml)
 
 > Go library and command line utility to check if a GitHub repository might need a CLA signed before contributing
 
@@ -22,7 +22,7 @@ If you know of a good way to check for CLA requirements, please [contribute](./C
 ### Installation
 
 ```
-go get github.com/Progressive/need-cla
+go get github.com/progressive-insurance/need-cla
 ```
 
 ### Usage
@@ -30,7 +30,7 @@ go get github.com/Progressive/need-cla
 First, import the library:
 
 ```go
-import "github.com/Progressive/need-cla"
+import needcla "github.com/progressive-insurance/need-cla"
 ```
 
 Then, create a GitHub client and check if a repository needs a CLA:

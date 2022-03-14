@@ -1,4 +1,4 @@
-module github.com/progressive/need-cla
+module github.com/progressive-insurance/need-cla
 
 go 1.16
 

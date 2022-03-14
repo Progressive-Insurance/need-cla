@@ -16,7 +16,7 @@ import (
 
 	"github.com/google/go-github/v38/github"
 	"github.com/peterbourgon/ff/v3"
-	needcla "github.com/progressive/need-cla"
+	needcla "github.com/progressive-insurance/need-cla"
 	"golang.org/x/oauth2"
 )
 
