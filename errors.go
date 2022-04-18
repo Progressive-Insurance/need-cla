@@ -33,6 +33,24 @@ type Errors struct {
 	ActionErr error
 }
 
+func (e *Errors) merge(errors Errors) {
+	if errors.TagErr != nil {
+		e.TagErr = errors.TagErr
+	}
+	if errors.BotFileErr != nil {
+		e.BotFileErr = errors.BotFileErr
+	}
+	if errors.InContributingErr != nil {
+		e.InContributingErr = errors.InContributingErr
+	}
+	if errors.InREADMEErr != nil {
+		e.InREADMEErr = errors.InREADMEErr
+	}
+	if errors.ActionErr != nil {
+		e.ActionErr = errors.ActionErr
+	}
+}
+
 func (e Errors) Error() string {
 	lines := []string{}
 	if e.TagErr != nil {
