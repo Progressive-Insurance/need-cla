@@ -1,3 +1,10 @@
+/*
+Copyright (c) 2021-2022 Progressive Casualty Insurance Company. All rights reserved.
+
+Use of this source code is governed by an MIT license that can be found in
+the LICENSE file at https://github.com/Progressive-Insurance/need-cla/blob/main/LICENSE.md
+*/
+
 package needcla
 
 // Details contains the results for CLA requirement using various hueristics
