@@ -1,7 +1,8 @@
 /*
 Copyright (c) 2021-2022 Progressive Casualty Insurance Company. All rights reserved.
 
-Progressive-owned, no external contributions.
+Use of this source code is governed by an MIT license that can be found in
+the LICENSE file at https://github.com/Progressive-Insurance/need-cla/blob/main/LICENSE.md
 */
 
 package main
@@ -14,7 +15,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-github/v38/github"
+	"github.com/google/go-github/v43/github"
 	"github.com/peterbourgon/ff/v3"
 	needcla "github.com/progressive-insurance/need-cla"
 	"golang.org/x/oauth2"
