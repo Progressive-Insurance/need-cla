@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/go-github/v38/github"
+	"github.com/google/go-github/v43/github"
 )
 
 func TestDetailWithContext(t *testing.T) {

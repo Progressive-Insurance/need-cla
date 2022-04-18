@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-github/v38/github"
+	"github.com/google/go-github/v43/github"
 )
 
 var stringMatchers = []string{"\bCLA\b", "Contributor License Agreement"}

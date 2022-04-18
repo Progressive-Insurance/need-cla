@@ -14,7 +14,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-github/v38/github"
+	"github.com/google/go-github/v43/github"
 	"github.com/peterbourgon/ff/v3"
 	needcla "github.com/progressive-insurance/need-cla"
 	"golang.org/x/oauth2"
