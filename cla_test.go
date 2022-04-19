@@ -20,7 +20,7 @@ func ExampleCheck() {
 		return
 	}
 
-	r, _ := Check(github.NewClient(nil), "google", "go-github")
+	r, _ := Check(github.NewClient(nil), "progressive-insurance", "need-cla")
 	if r {
 		fmt.Println("A CLA is required.")
 		return
