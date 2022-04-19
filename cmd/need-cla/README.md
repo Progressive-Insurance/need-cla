@@ -4,7 +4,7 @@
 
 Requires:
 
-- Go >= v1.16
+- Go >= v1.18
 
 ```
 $ git clone github.com/Progressive/need-cla

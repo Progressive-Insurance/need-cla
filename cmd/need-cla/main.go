@@ -31,10 +31,6 @@ func main() {
 		fmt.Println("  -token string\n  \tGitHub personal access token, can also be passed as CLA_TOKEN env var")
 	}
 	ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("CLA"))
-	// TODO
-	// do we even need a token?
-	// it doesn't make sense that we'd check for a CLA
-	// for a private repository...
 	var httpClient *http.Client
 	if token == "" {
 		httpClient = nil
