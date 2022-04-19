@@ -10,6 +10,7 @@ package needcla
 // https://en.wikipedia.org/wiki/Contributor_License_Agreement#Users
 // TODO: Autodiscover github accounts from company names?
 var knownOwners = []string{
+	"progressive-insurance",
 	"dotnet",
 	"apache",
 	"canonical",
