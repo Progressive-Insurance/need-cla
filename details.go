@@ -24,10 +24,7 @@ type Details struct {
 }
 
 func (d *Details) Required() bool {
-	if d.Tag || d.BotFile || d.InContributing || d.InREADME || d.Action {
-		return true
-	}
-	return false
+	return d.Known || d.Tag || d.BotFile || d.InContributing || d.InREADME || d.Action
 }
 
 func (d *Details) merge(details Details) {
