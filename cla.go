@@ -28,32 +28,32 @@ func CheckWithContext(ctx context.Context, client *github.Client, owner string, 
 	return d.Required(), err
 }
 
-func Detail(client *github.Client, owner string, repo string) (*Details, error) {
+func Detail(client *github.Client, owner string, repo string) (Details, error) {
 	return DetailWithContext(context.Background(), client, owner, repo)
 }
 
-func DetailWithContext(ctx context.Context, client *github.Client, owner string, repo string) (*Details, error) {
+func DetailWithContext(ctx context.Context, client *github.Client, owner string, repo string) (Details, error) {
 	limits, _, err := client.RateLimits(ctx)
 	if err != nil {
-		return &Details{}, fmt.Errorf("failed to get github rate limit: %w", err)
+		return Details{}, fmt.Errorf("failed to get github rate limit: %w", err)
 	}
 	if limits.Core.Remaining < 10 {
 		// TODO: count actual API calls we'll make
-		return &Details{}, fmt.Errorf("remaining github rate limit too low")
+		return Details{}, fmt.Errorf("remaining github rate limit too low")
 	}
 
 	r, resp, _ := client.Repositories.Get(ctx, owner, repo)
 	if resp.StatusCode == http.StatusNotFound {
-		return &Details{}, fmt.Errorf("%s/%s: %w", owner, repo, ErrNotFound)
+		return Details{}, fmt.Errorf("%s/%s: %w", owner, repo, ErrNotFound)
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return &Details{}, ErrInvalidToken
+		return Details{}, ErrInvalidToken
 	}
 	def := r.GetDefaultBranch()
 
 	c, err := newChecker(ctx, client, owner, repo, def)
 	if err != nil {
-		return &Details{}, fmt.Errorf("failed to create checker: %w", err)
+		return Details{}, fmt.Errorf("failed to create checker: %w", err)
 	}
 	var (
 		d = new(Details)
@@ -65,5 +65,5 @@ func DetailWithContext(ctx context.Context, client *github.Client, owner string,
 		e.merge(result.e)
 	}
 
-	return d, e.ErrOrNil()
+	return *d, e.ErrOrNil()
 }
