@@ -35,7 +35,7 @@ func Detail(client *github.Client, owner string, repo string) (*Details, error) 
 func DetailWithContext(ctx context.Context, client *github.Client, owner string, repo string) (*Details, error) {
 	limits, _, err := client.RateLimits(ctx)
 	if err != nil {
-		return &Details{}, fmt.Errorf("failed to get github rate limit")
+		return &Details{}, fmt.Errorf("failed to get github rate limit: %w", err)
 	}
 	if limits.Core.Remaining < 10 {
 		// TODO: count actual API calls we'll make
