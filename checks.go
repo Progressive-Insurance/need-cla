@@ -192,6 +192,9 @@ func (c checker) usesCLAAssistantAction(ctx context.Context) (bool, error) {
 		}
 		return false, err
 	}
+    if workflowsEntry == nil {
+        return false, nil
+    }
 	workflowsTree, _, err := c.client.Git.GetTree(ctx, c.owner, c.repo, workflowsEntry.GetSHA(), false)
 	if err != nil {
 		return false, fmt.Errorf("failed to get %s/%s/master/.github/workflows tree: %v", c.owner, c.repo, err)
