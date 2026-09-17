@@ -1,0 +1,41 @@
+Commit: 325201f1d0f7c7f05463f08383325e9c05cb6501
+Toolchain: go version go1.25.12 windows/amd64
+Environment: GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
+Command: go tool cover -func=review-coverage.out
+
+github.com/progressive-insurance/need-cla/checks.go:36:			newChecker				0.0%
+github.com/progressive-insurance/need-cla/checks.go:52:			isKnownCheck				0.0%
+github.com/progressive-insurance/need-cla/checks.go:60:			isKnown					0.0%
+github.com/progressive-insurance/need-cla/checks.go:70:			hasCLATagCheck				0.0%
+github.com/progressive-insurance/need-cla/checks.go:88:			hasCLATag				54.5%
+github.com/progressive-insurance/need-cla/checks.go:128:		hasCLABotFileCheck			0.0%
+github.com/progressive-insurance/need-cla/checks.go:140:		hasCLABotFile				0.0%
+github.com/progressive-insurance/need-cla/checks.go:148:		referencesCLAInContributingCheck	0.0%
+github.com/progressive-insurance/need-cla/checks.go:160:		referencesCLAInContributing		0.0%
+github.com/progressive-insurance/need-cla/checks.go:168:		referencesCLAInREADMECheck		0.0%
+github.com/progressive-insurance/need-cla/checks.go:180:		usesCLAAssistantActionCheck		0.0%
+github.com/progressive-insurance/need-cla/checks.go:192:		referencesCLAInREADME			0.0%
+github.com/progressive-insurance/need-cla/checks.go:204:		usesCLAAssistantAction			13.3%
+github.com/progressive-insurance/need-cla/checks.go:253:		checkAll				0.0%
+github.com/progressive-insurance/need-cla/checks.go:281:		find					83.3%
+github.com/progressive-insurance/need-cla/checks.go:303:		contentAtPath				0.0%
+github.com/progressive-insurance/need-cla/checks.go:321:		contentAtSHA				0.0%
+github.com/progressive-insurance/need-cla/checks.go:333:		decodeBlob				85.7%
+github.com/progressive-insurance/need-cla/checks.go:348:		referencesCLAInContent			88.9%
+github.com/progressive-insurance/need-cla/cla.go:39:			Check					0.0%
+github.com/progressive-insurance/need-cla/cla.go:43:			CheckWithContext			0.0%
+github.com/progressive-insurance/need-cla/cla.go:48:			Detail					0.0%
+github.com/progressive-insurance/need-cla/cla.go:52:			DetailWithContext			0.0%
+github.com/progressive-insurance/need-cla/cmd/need-cla/main.go:26:	main					0.0%
+github.com/progressive-insurance/need-cla/cmd/need-cla/main.go:75:	symbol					0.0%
+github.com/progressive-insurance/need-cla/cmd/need-cla/main.go:82:	is					0.0%
+github.com/progressive-insurance/need-cla/cmd/need-cla/main.go:89:	does					0.0%
+github.com/progressive-insurance/need-cla/cmd/need-cla/main.go:96:	do					0.0%
+github.com/progressive-insurance/need-cla/details.go:26:		Required				100.0%
+github.com/progressive-insurance/need-cla/details.go:30:		merge					100.0%
+github.com/progressive-insurance/need-cla/errors.go:36:			merge					70.0%
+github.com/progressive-insurance/need-cla/errors.go:54:			Error					100.0%
+github.com/progressive-insurance/need-cla/errors.go:74:			ErrOrNil				0.0%
+total:									(statements)				26.5%
+
+Exit code: 0

@@ -1,0 +1,2 @@
+# Preserve captured test output as evidence, including runner whitespace.
+*.txt -text -whitespace

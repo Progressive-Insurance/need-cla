@@ -1,0 +1,157 @@
+Commit: 325201f1d0f7c7f05463f08383325e9c05cb6501
+Toolchain: go version go1.25.12 windows/amd64
+Environment: GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
+Command: go test -count=1 -short -timeout=45s -run ^TestAudit -v ./...
+
+=== RUN   TestAuditRepositoryTransportFailureReturnsErrorWithoutPanic
+--- PASS: TestAuditRepositoryTransportFailureReturnsErrorWithoutPanic (0.00s)
+=== RUN   TestAuditRepositoryHTTPFailureStopsAndPreservesCause
+--- PASS: TestAuditRepositoryHTTPFailureStopsAndPreservesCause (0.00s)
+=== RUN   TestAuditMissingWorkflowsIsNegativeResultWithoutRequest
+--- PASS: TestAuditMissingWorkflowsIsNegativeResultWithoutRequest (0.00s)
+=== RUN   TestAuditSmallScanAcceptsSufficientQuotaBelowTen
+    audit_repro_test.go:161: this empty repository needs only four requests after rate lookup; got {Known:false Tag:false BotFile:false InContributing:false InREADME:false Action:false}, remaining github rate limit too low
+    audit_repro_test.go:164: scan was rejected before using available quota: [/rate_limit]
+--- FAIL: TestAuditSmallScanAcceptsSufficientQuotaBelowTen (0.00s)
+=== RUN   TestAuditKnownOwnerIsCaseInsensitive
+=== RUN   TestAuditKnownOwnerIsCaseInsensitive/google
+=== RUN   TestAuditKnownOwnerIsCaseInsensitive/Google
+=== RUN   TestAuditKnownOwnerIsCaseInsensitive/GOOGLE
+=== RUN   TestAuditKnownOwnerIsCaseInsensitive/Progressive-Insurance
+--- PASS: TestAuditKnownOwnerIsCaseInsensitive (0.00s)
+    --- PASS: TestAuditKnownOwnerIsCaseInsensitive/google (0.00s)
+    --- PASS: TestAuditKnownOwnerIsCaseInsensitive/Google (0.00s)
+    --- PASS: TestAuditKnownOwnerIsCaseInsensitive/GOOGLE (0.00s)
+    --- PASS: TestAuditKnownOwnerIsCaseInsensitive/Progressive-Insurance (0.00s)
+=== RUN   TestAuditStandaloneCLAAcronymMatches
+=== RUN   TestAuditStandaloneCLAAcronymMatches/Please_sign_the_CLA_before_contributing.
+=== RUN   TestAuditStandaloneCLAAcronymMatches/CLA
+=== RUN   TestAuditStandaloneCLAAcronymMatches/Sign_our_**CLA**.
+=== RUN   TestAuditStandaloneCLAAcronymMatches/Contributor_License_Agreement
+=== RUN   TestAuditStandaloneCLAAcronymMatches/CLASS
+=== RUN   TestAuditStandaloneCLAAcronymMatches/CLAMP
+=== RUN   TestAuditStandaloneCLAAcronymMatches/#00
+--- PASS: TestAuditStandaloneCLAAcronymMatches (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/Please_sign_the_CLA_before_contributing. (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/CLA (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/Sign_our_**CLA**. (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/Contributor_License_Agreement (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/CLASS (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/CLAMP (0.00s)
+    --- PASS: TestAuditStandaloneCLAAcronymMatches/#00 (0.00s)
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_yes
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_no
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_yellow
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_nope
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_n
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_|
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/not-cla:_yes
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_yes-extra
+    audit_repro_test.go:214: label "cla: yes-extra": got true, <nil>; want false, nil
+=== RUN   TestAuditPRLabelMatcherRequiresCompleteYesOrNo/bug
+--- FAIL: TestAuditPRLabelMatcherRequiresCompleteYesOrNo (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_yes (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_no (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_yellow (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_nope (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_n (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_| (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/not-cla:_yes (0.00s)
+    --- FAIL: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/cla:_yes-extra (0.00s)
+    --- PASS: TestAuditPRLabelMatcherRequiresCompleteYesOrNo/bug (0.00s)
+=== RUN   TestAuditCLABotDirectoryDoesNotCountAsConfigFile
+    audit_repro_test.go:224: .clabot directory is not a config file; got true, <nil>
+--- FAIL: TestAuditCLABotDirectoryDoesNotCountAsConfigFile (0.00s)
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/plain
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/single_quoted
+    audit_repro_test.go:246: workflow single quoted: got false, <nil>; want true, nil
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/double_quoted
+    audit_repro_test.go:246: workflow double quoted: got false, <nil>; want true, nil
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/comment
+    audit_repro_test.go:246: workflow comment: got true, <nil>; want false, nil
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/repository_prefix
+    audit_repro_test.go:246: workflow repository prefix: got true, <nil>; want false, nil
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/shell_text
+    audit_repro_test.go:246: workflow shell text: got true, <nil>; want false, nil
+=== RUN   TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/current_owner_alias
+    audit_repro_test.go:246: workflow current owner alias: got false, <nil>; want true, nil
+--- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository (0.00s)
+    --- PASS: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/plain (0.00s)
+    --- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/single_quoted (0.00s)
+    --- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/double_quoted (0.00s)
+    --- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/comment (0.00s)
+    --- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/repository_prefix (0.00s)
+    --- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/shell_text (0.00s)
+    --- FAIL: TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository/current_owner_alias (0.00s)
+=== RUN   TestAuditNonWorkflowFilesCannotEstablishAction
+    audit_repro_test.go:256: README.md is not an executable workflow; got true, <nil>
+--- FAIL: TestAuditNonWorkflowFilesCannotEstablishAction (0.00s)
+=== RUN   TestAuditWorkflowSubdirectoriesAreSkipped
+    audit_repro_test.go:272: a subdirectory is not a workflow and should be skipped; got false, 1 error(s) checking for cla-assistant action:
+        	* archive: error getting archive-tree blob: GET https://api.github.com/repos/example/project/git/blobs/archive-tree: 404 unexpected fixture request []
+    audit_repro_test.go:276: requested directory SHA from blobs API: /repos/example/project/git/blobs/archive-tree
+--- FAIL: TestAuditWorkflowSubdirectoriesAreSkipped (0.00s)
+=== RUN   TestAuditTruncatedTreeCauseRemainsInspectable
+=== RUN   TestAuditTruncatedTreeCauseRemainsInspectable/readme
+    audit_repro_test.go:295: truncated tree sentinel was lost: failed to check README.md: tree was truncated and README.md was possibly missed
+=== RUN   TestAuditTruncatedTreeCauseRemainsInspectable/contributing
+    audit_repro_test.go:295: truncated tree sentinel was lost: failed to check CONTRIBUTING.md: tree was truncated and CONTRIBUTING.md was possibly missed
+=== RUN   TestAuditTruncatedTreeCauseRemainsInspectable/action
+    audit_repro_test.go:295: truncated tree sentinel was lost: tree was truncated and .github/workflows was possibly missed
+--- FAIL: TestAuditTruncatedTreeCauseRemainsInspectable (0.00s)
+    --- FAIL: TestAuditTruncatedTreeCauseRemainsInspectable/readme (0.00s)
+    --- FAIL: TestAuditTruncatedTreeCauseRemainsInspectable/contributing (0.00s)
+    --- FAIL: TestAuditTruncatedTreeCauseRemainsInspectable/action (0.00s)
+=== RUN   TestAuditTreeFetchPreservesUnderlyingError
+    audit_repro_test.go:308: tree fetch lost its underlying cause: failed to get example/project tree: Get "https://api.github.com/repos/example/project/git/trees/main?recursive=1": tree transport failure
+--- FAIL: TestAuditTreeFetchPreservesUnderlyingError (0.00s)
+=== RUN   TestAuditAggregateSupportsErrorsIsAndAs
+    audit_repro_test.go:316: errors.Is cannot find a contained checker failure: 1 error(s) checking for CLA references:
+        	* checking for CLA tag: underlying checker failure
+    audit_repro_test.go:322: errors.As cannot find a contained GitHub API failure: 1 error(s) checking for CLA references:
+        	* checking for CLA references in README.md: GET https://api.github.com/audit: 500 upstream error []
+--- FAIL: TestAuditAggregateSupportsErrorsIsAndAs (0.00s)
+=== RUN   TestAuditForbiddenIsNotAutomaticallyInvalidToken
+    audit_repro_test.go:334: permission denial should preserve its cause, not become invalid credentials: invalid personal access token
+--- FAIL: TestAuditForbiddenIsNotAutomaticallyInvalidToken (0.00s)
+=== RUN   TestAuditRateLimitUnauthorizedExposesInvalidToken
+    audit_repro_test.go:344: authentication failure on initial request bypassed ErrInvalidToken: failed to get github rate limit: GET https://api.github.com/rate_limit: 401 Bad credentials []
+--- FAIL: TestAuditRateLimitUnauthorizedExposesInvalidToken (0.00s)
+=== RUN   TestAuditDefaultBranchIsEncodedAsPathData
+=== RUN   TestAuditDefaultBranchIsEncodedAsPathData/release#1
+    audit_repro_test.go:356: legal Git branch must survive URL construction; branch="release#1" requests=[/repos/example/project/git/trees/release] error=failed to get example/project tree: GET https://api.github.com/repos/example/project/git/trees/release#1?recursive=1: 404 unexpected fixture request []
+=== RUN   TestAuditDefaultBranchIsEncodedAsPathData/release%stable
+    audit_repro_test.go:356: legal Git branch must survive URL construction; branch="release%stable" requests=[] error=failed to get example/project tree: parse "repos/example/project/git/trees/release%stable?recursive=1": invalid URL escape "%st"
+=== RUN   TestAuditDefaultBranchIsEncodedAsPathData/release%61
+    audit_repro_test.go:356: legal Git branch must survive URL construction; branch="release%61" requests=[/repos/example/project/git/trees/releasea] error=failed to get example/project tree: GET https://api.github.com/repos/example/project/git/trees/release%61?recursive=1: 404 unexpected fixture request []
+--- FAIL: TestAuditDefaultBranchIsEncodedAsPathData (0.00s)
+    --- FAIL: TestAuditDefaultBranchIsEncodedAsPathData/release#1 (0.00s)
+    --- FAIL: TestAuditDefaultBranchIsEncodedAsPathData/release%stable (0.00s)
+    --- FAIL: TestAuditDefaultBranchIsEncodedAsPathData/release%61 (0.00s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla	0.594s
+=== RUN   TestAuditCLIHelperProcess
+--- PASS: TestAuditCLIHelperProcess (0.00s)
+=== RUN   TestAuditCLIRejectsInvalidArgumentsBeforeNetwork
+=== RUN   TestAuditCLIRejectsInvalidArgumentsBeforeNetwork/[]
+=== RUN   TestAuditCLIRejectsInvalidArgumentsBeforeNetwork/[owner]
+=== RUN   TestAuditCLIRejectsInvalidArgumentsBeforeNetwork/[owner_repo_extra]
+    audit_repro_test.go:81: want usage failure without network; error=exit status 1 output="AUDIT_UNEXPECTED_NETWORK_REQUEST\nfailed to get github rate limit: Get \"https://api.github.com/rate_limit\": invalid arguments reached the network\n"
+--- FAIL: TestAuditCLIRejectsInvalidArgumentsBeforeNetwork (0.27s)
+    --- PASS: TestAuditCLIRejectsInvalidArgumentsBeforeNetwork/[] (0.25s)
+    --- PASS: TestAuditCLIRejectsInvalidArgumentsBeforeNetwork/[owner] (0.01s)
+    --- FAIL: TestAuditCLIRejectsInvalidArgumentsBeforeNetwork/[owner_repo_extra] (0.01s)
+=== RUN   TestAuditCLIPartialFailureIsNotSuccessfulNegative
+    audit_repro_test.go:90: incomplete scan exited successfully; output="1 error(s) checking for CLA references:\n\t* checking for CLA tag: error getting audit-owner/audit-repo PRs: GET https://api.github.com/repos/audit-owner/audit-repo/pulls?per_page=100&state=all: 500 audit simulated PR failure []\n\n[✗] I think audit-owner/audit-repo DOES NOT need a CLA signed before contributing.\n\nI found that audit-owner/audit-repo:\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES NOT reference a CLA\n\t* a .github/workflow DOES NOT use the cla-assistant GitHub Action\n\t* PRs DO NOT have \"cla\" tags\n\t* .clabot file DOES NOT exist"
+    audit_repro_test.go:93: failed heuristic was reported as negative; output="1 error(s) checking for CLA references:\n\t* checking for CLA tag: error getting audit-owner/audit-repo PRs: GET https://api.github.com/repos/audit-owner/audit-repo/pulls?per_page=100&state=all: 500 audit simulated PR failure []\n\n[✗] I think audit-owner/audit-repo DOES NOT need a CLA signed before contributing.\n\nI found that audit-owner/audit-repo:\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES NOT reference a CLA\n\t* a .github/workflow DOES NOT use the cla-assistant GitHub Action\n\t* PRs DO NOT have \"cla\" tags\n\t* .clabot file DOES NOT exist"
+--- FAIL: TestAuditCLIPartialFailureIsNotSuccessfulNegative (0.01s)
+=== RUN   TestAuditCLIRequestsHaveDeadline
+    audit_repro_test.go:100: CLI request had no context deadline; output="AUDIT_NO_REQUEST_DEADLINE\nfailed to get github rate limit: Get \"https://api.github.com/rate_limit\": offline deadline probe complete\n"
+--- FAIL: TestAuditCLIRequestsHaveDeadline (0.01s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla/cmd/need-cla	0.820s
+FAIL
+
+Exit code: 1

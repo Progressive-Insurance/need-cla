@@ -23,11 +23,11 @@ var ErrNotFound = errors.New("not found")
 type Errors struct {
 	// TagErr is non-nil if there was an error checking for `Details.Tag`
 	TagErr error
-	// BotFileError is non-nil if there was an eror checking for `Details.BotFile`
+	// BotFileErr is non-nil if there was an error checking for `Details.BotFile`
 	BotFileErr error
 	// InContributingErr is non-nil if there was an error checking for `Details.InContributing`
 	InContributingErr error
-	// InREADMEErr is non-nil if there was an error checking for `Deatails.InREADME`
+	// InREADMEErr is non-nil if there was an error checking for `Details.InREADME`
 	InREADMEErr error
 	// ActionErr is non-nil if there was an error checking for `Details.Action`
 	ActionErr error

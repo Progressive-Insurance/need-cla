@@ -1,0 +1,7 @@
+Commit: 325201f1d0f7c7f05463f08383325e9c05cb6501
+Toolchain: go version go1.25.12 windows/amd64
+Environment: GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
+Command: go build ./...
+
+
+Exit code: 0

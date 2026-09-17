@@ -7,15 +7,15 @@ the LICENSE file at https://github.com/Progressive-Insurance/need-cla/blob/main/
 
 package needcla
 
-// Details contains the results for CLA requirement using various hueristics
+// Details contains the results for CLA requirement using various heuristics
 type Details struct {
-	// Known is true if the owner of a repo is a known CLA requiror
+	// Known is true if the owner of a repo is a known CLA requirer
 	Known bool
-	// Tag is true if a sample of PRs in the repo use a 'cla: yes' and/or 'cla: no' label
+	// Tag is true if any PR in the repo uses a 'cla: yes' and/or 'cla: no' label
 	Tag bool
 	// BotFile is true if a .clabot config file is present in root
 	BotFile bool
-	// InContributing is true if the repo's CONTRIBUTING.md exists and refrences the CLA string matchers
+	// InContributing is true if the repo's CONTRIBUTING.md exists and references the CLA string matchers
 	InContributing bool
 	// InREADME is true if the repo's README.md exists and references the CLA string matchers
 	InREADME bool

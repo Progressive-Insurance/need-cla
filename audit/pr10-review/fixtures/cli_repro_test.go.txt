@@ -1,0 +1,102 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+)
+
+type auditCLITransport func(*http.Request) (*http.Response, error)
+
+func (f auditCLITransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// This helper only runs inside a subprocess. Every request is intercepted locally.
+func TestAuditCLIHelperProcess(t *testing.T) {
+	if os.Getenv("NEED_CLA_AUDIT_HELPER") != "1" {
+		return
+	}
+	var args []string
+	if err := json.Unmarshal([]byte(os.Getenv("NEED_CLA_AUDIT_ARGS")), &args); err != nil {
+		panic(err)
+	}
+	os.Args = append([]string{"need-cla"}, args...)
+	scenario := os.Getenv("NEED_CLA_AUDIT_SCENARIO")
+	http.DefaultTransport = auditCLITransport(func(r *http.Request) (*http.Response, error) {
+		if scenario == "invalid-args" {
+			fmt.Fprintln(os.Stderr, "AUDIT_UNEXPECTED_NETWORK_REQUEST")
+			return nil, fmt.Errorf("invalid arguments reached the network")
+		}
+		if scenario == "deadline" {
+			if _, ok := r.Context().Deadline(); !ok {
+				fmt.Fprintln(os.Stderr, "AUDIT_NO_REQUEST_DEADLINE")
+			}
+			return nil, fmt.Errorf("offline deadline probe complete")
+		}
+		status := http.StatusOK
+		var body string
+		switch r.URL.Path {
+		case "/rate_limit":
+			body = `{"resources":{"core":{"limit":5000,"remaining":1000}}}`
+		case "/repos/audit-owner/audit-repo":
+			body = `{"default_branch":"main"}`
+		case "/repos/audit-owner/audit-repo/git/trees/main":
+			body = `{"tree":[{"path":".github/workflows","type":"tree","sha":"workflows"}],"truncated":false}`
+		case "/repos/audit-owner/audit-repo/git/trees/workflows":
+			body = `{"tree":[],"truncated":false}`
+		case "/repos/audit-owner/audit-repo/pulls":
+			status = http.StatusInternalServerError
+			body = `{"message":"audit simulated PR failure"}`
+		default:
+			status = http.StatusNotFound
+			body = `{"message":"unexpected fixture URL"}`
+		}
+		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+	})
+	main()
+	os.Exit(0)
+}
+
+func auditRunCLI(t *testing.T, scenario string, args ...string) (string, error) {
+	t.Helper()
+	encoded, err := json.Marshal(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestAuditCLIHelperProcess$")
+	cmd.Env = append(os.Environ(), "NEED_CLA_AUDIT_HELPER=1", "NEED_CLA_AUDIT_SCENARIO="+scenario, "NEED_CLA_AUDIT_ARGS="+string(encoded), "CLA_TOKEN=")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func TestAuditCLIRejectsInvalidArgumentsBeforeNetwork(t *testing.T) {
+	for _, args := range [][]string{nil, {"owner"}, {"owner", "repo", "extra"}} {
+		t.Run(fmt.Sprint(args), func(t *testing.T) {
+			out, err := auditRunCLI(t, "invalid-args", args...)
+			if err == nil || strings.Contains(out, "AUDIT_UNEXPECTED_NETWORK_REQUEST") || !strings.Contains(strings.ToLower(out), "usage") {
+				t.Fatalf("want usage failure without network; error=%v output=%q", err, out)
+			}
+		})
+	}
+}
+
+func TestAuditCLIPartialFailureIsNotSuccessfulNegative(t *testing.T) {
+	out, err := auditRunCLI(t, "partial", "audit-owner", "audit-repo")
+	if err == nil {
+		t.Errorf("incomplete scan exited successfully; output=%q", out)
+	}
+	if strings.Contains(out, "DOES NOT need a CLA") || strings.Contains(out, "PRs DO NOT have") {
+		t.Errorf("failed heuristic was reported as negative; output=%q", out)
+	}
+}
+
+func TestAuditCLIRequestsHaveDeadline(t *testing.T) {
+	out, _ := auditRunCLI(t, "deadline", "audit-owner", "audit-repo")
+	if strings.Contains(out, "AUDIT_NO_REQUEST_DEADLINE") {
+		t.Fatalf("CLI request had no context deadline; output=%q", out)
+	}
+}

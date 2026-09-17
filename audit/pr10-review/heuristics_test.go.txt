@@ -1,0 +1,286 @@
+// Independent desired-behavior probes for PR #10, HEAD
+// 325201f1d0f7c7f05463f08383325e9c05cb6501, compared with baseline d522142.
+// Copy this file into an isolated PR10 checkout as a *_test.go file.
+// No helpers from the supplied audit or PR11 implementation are required.
+// All HTTP responses are in-memory fixtures; no network access is performed.
+//
+// Introduced regressions: silent workflow cap, case-only path shadowing,
+// and treating malformed blob metadata as valid content.
+// New-feature defect: duplicate first PR page and missing intended tenth page.
+// Incomplete existing fix: labels with unrelated suffixes still match.
+//
+// GitHub pagination defaults to page 1:
+// https://docs.github.com/en/rest/pulls/pulls#list-pull-requests
+// The SDK's Page field uses url:"page,omitempty", so Page=0 is omitted.
+// GitHub workflow files belong in .github/workflows:
+// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+// The Git blobs JSON endpoint always returns base64 content:
+// https://docs.github.com/en/rest/git/blobs#get-a-blob
+package needcla
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/google/go-github/v43/github"
+)
+
+type pr10ReviewTransport func(*http.Request) (*http.Response, error)
+
+func (f pr10ReviewTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func pr10ReviewResponse(req *http.Request, value interface{}) *http.Response {
+	body, err := json.Marshal(value)
+	if err != nil {
+		panic(err) // Only statically controlled fixture values reach this helper.
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(string(body))),
+		Request:    req,
+	}
+}
+
+func pr10ReviewEntry(path, kind, sha string) *github.TreeEntry {
+	return &github.TreeEntry{Path: github.String(path), Type: github.String(kind), SHA: github.String(sha)}
+}
+
+func pr10ReviewBlob(text string) *github.Blob {
+	return &github.Blob{Encoding: github.String("base64"), Content: github.String(base64.StdEncoding.EncodeToString([]byte(text)))}
+}
+
+const pr10ReviewCLAWorkflow = "name: CLA\non: pull_request\njobs:\n  cla:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: cla-assistant/github-action@v2\n"
+
+// Baseline visits the 51st file and finds the action. PR10 stops at 50 and
+// silently returns false,nil. A bounded scan may instead return an explicit
+// incomplete-scan error; it must not present skipped files as fully inspected.
+func TestPR10ReviewWorkflowCapMustNotReturnCleanNegative(t *testing.T) {
+	var entries []*github.TreeEntry
+	for i := 0; i < 51; i++ {
+		entries = append(entries, pr10ReviewEntry(fmt.Sprintf("%03d.yml", i), "blob", fmt.Sprintf("file-%02d", i)))
+	}
+	blobCalls := 0
+	client := github.NewClient(&http.Client{Transport: pr10ReviewTransport(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path == "/repos/o/r/git/trees/workflows" {
+			return pr10ReviewResponse(req, &github.Tree{Entries: entries}), nil
+		}
+		if strings.HasPrefix(req.URL.Path, "/repos/o/r/git/blobs/") {
+			blobCalls++
+			text := "name: build\non: push\njobs: {}\n"
+			if strings.HasSuffix(req.URL.Path, "/file-50") {
+				text = pr10ReviewCLAWorkflow
+			}
+			return pr10ReviewResponse(req, pr10ReviewBlob(text)), nil
+		}
+		return nil, fmt.Errorf("unexpected fixture request %s", req.URL)
+	})})
+	c := checker{client: client, owner: "o", repo: "r", branch: "main", tree: &github.Tree{
+		Entries: []*github.TreeEntry{pr10ReviewEntry(".github/workflows", "tree", "workflows")},
+	}}
+	got, err := c.usesCLAAssistantAction(context.Background())
+	t.Logf("Action=%v error=%v blob requests=%d; CLA action is in file 51", got, err, blobCalls)
+	if !got && err == nil {
+		t.Fatal("workflow budget exhausted with files uninspected, but returned a clean negative")
+	}
+}
+
+// Git trees can contain both paths. The differently cased directory comes
+// first lexically, but must not shadow the actual .github/workflows directory.
+// Baseline's exact match finds the CLA; PR10's global EqualFold misses it.
+func TestPR10ReviewCaseVariantCannotShadowExactWorkflowDirectory(t *testing.T) {
+	var requests []string
+	client := github.NewClient(&http.Client{Transport: pr10ReviewTransport(func(req *http.Request) (*http.Response, error) {
+		requests = append(requests, req.URL.Path)
+		switch req.URL.Path {
+		case "/repos/o/r/git/trees/wrong-case":
+			return pr10ReviewResponse(req, &github.Tree{Entries: []*github.TreeEntry{}}), nil
+		case "/repos/o/r/git/trees/active":
+			return pr10ReviewResponse(req, &github.Tree{Entries: []*github.TreeEntry{pr10ReviewEntry("cla.yml", "blob", "cla")}}), nil
+		case "/repos/o/r/git/blobs/cla":
+			return pr10ReviewResponse(req, pr10ReviewBlob(pr10ReviewCLAWorkflow)), nil
+		default:
+			return nil, fmt.Errorf("unexpected fixture request %s", req.URL)
+		}
+	})})
+	c := checker{client: client, owner: "o", repo: "r", branch: "main", tree: &github.Tree{
+		Entries: []*github.TreeEntry{
+			pr10ReviewEntry(".github/WORKFLOWS", "tree", "wrong-case"),
+			pr10ReviewEntry(".github/workflows", "tree", "active"),
+		},
+	}}
+	got, err := c.usesCLAAssistantAction(context.Background())
+	t.Logf("Action=%v error=%v requests=%v", got, err, requests)
+	if err != nil || !got {
+		t.Fatal("differently cased path shadowed the exact active workflow directory")
+	}
+}
+
+// Pagination itself was an expansion beyond the baseline's documented first
+// 100 PRs. This verifies the NEW ten-page implementation against GitHub's
+// one-based protocol, rather than claiming the old sample size was a bug.
+func TestPR10ReviewPaginationDoesNotDuplicateFirstPageOrMissTenth(t *testing.T) {
+	var pages []int
+	client := github.NewClient(&http.Client{Transport: pr10ReviewTransport(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/repos/o/r/pulls" {
+			return nil, fmt.Errorf("unexpected fixture request %s", req.URL)
+		}
+		page := 1 // GitHub's documented default when page is absent.
+		if raw := req.URL.Query().Get("page"); raw != "" {
+			var err error
+			page, err = strconv.Atoi(raw)
+			if err != nil {
+				return nil, err
+			}
+		}
+		pages = append(pages, page)
+		prs := make([]*github.PullRequest, 100)
+		for i := range prs {
+			prs[i] = &github.PullRequest{Number: github.Int((page-1)*100 + i + 1)}
+		}
+		if page == 10 {
+			prs[0].Labels = []*github.Label{{Name: github.String("cla: yes")}}
+		}
+		return pr10ReviewResponse(req, prs), nil
+	})})
+	c := checker{client: client, owner: "o", repo: "r"}
+	got, err := c.hasCLATag(context.Background())
+	t.Logf("Tag=%v error=%v pages requested=%v", got, err, pages)
+	seen := make(map[int]bool)
+	for _, page := range pages {
+		if seen[page] {
+			t.Errorf("page %d requested more than once", page)
+		}
+		seen[page] = true
+	}
+	if err != nil || !got {
+		t.Error("ten-page scan missed the label on page ten")
+	}
+}
+
+// A malformed successful response is not established document content. This
+// is a defensive regression: no claim is made that GitHub normally omits its
+// documented encoding. Baseline errors; PR10 converts these into clean false.
+func TestPR10ReviewMissingBlobEncodingIsNotCleanNegative(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body map[string]string
+	}{
+		{"empty object", map[string]string{}},
+		{"base64 content without metadata", map[string]string{"content": base64.StdEncoding.EncodeToString([]byte("Please sign the CLA."))}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := github.NewClient(&http.Client{Transport: pr10ReviewTransport(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Path != "/repos/o/r/git/blobs/readme" {
+					return nil, fmt.Errorf("unexpected fixture request %s", req.URL)
+				}
+				return pr10ReviewResponse(req, tc.body), nil
+			})})
+			c := checker{client: client, owner: "o", repo: "r", tree: &github.Tree{
+				Entries: []*github.TreeEntry{pr10ReviewEntry("README.md", "blob", "readme")},
+			}}
+			got, err := c.referencesCLAInREADME(context.Background())
+			t.Logf("InREADME=%v error=%v", got, err)
+			if err == nil {
+				t.Error("missing blob encoding accepted as established raw content")
+			}
+		})
+	}
+}
+
+// The arbitrary quota gate increased from 10 to 20. This healthy repository
+// needs only four metered requests after the rate lookup, so 19 is sufficient.
+// Include an empty workflows directory to avoid the baseline's unrelated
+// missing-workflows bug when making the differential comparison.
+func TestPR10ReviewNineteenRequestsAreEnoughForSmallScan(t *testing.T) {
+	client := github.NewClient(&http.Client{Transport: pr10ReviewTransport(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/rate_limit":
+			return pr10ReviewResponse(req, map[string]interface{}{
+				"resources": map[string]interface{}{
+					"core": map[string]interface{}{"limit": 5000, "remaining": 19, "reset": 4102444800},
+				},
+			}), nil
+		case "/repos/o/r":
+			return pr10ReviewResponse(req, &github.Repository{DefaultBranch: github.String("main")}), nil
+		case "/repos/o/r/git/trees/main":
+			return pr10ReviewResponse(req, &github.Tree{Entries: []*github.TreeEntry{pr10ReviewEntry(".github/workflows", "tree", "workflows")}}), nil
+		case "/repos/o/r/git/trees/workflows":
+			return pr10ReviewResponse(req, &github.Tree{Entries: []*github.TreeEntry{}}), nil
+		case "/repos/o/r/pulls":
+			return pr10ReviewResponse(req, []*github.PullRequest{}), nil
+		default:
+			return nil, fmt.Errorf("unexpected fixture request %s", req.URL)
+		}
+	})})
+	d, err := DetailWithContext(context.Background(), client, "o", "r")
+	t.Logf("Required=%v error=%v", d.Required(), err)
+	if err != nil {
+		t.Fatal("healthy scan with ample remaining quota was rejected")
+	}
+}
+
+// The character class and missing start anchor are fixed, but a word boundary
+// still permits unrelated suffixes. This is an incomplete existing fix, not a
+// regression introduced relative to baseline.
+func TestPR10ReviewPRLabelMustEndAfterYesOrNo(t *testing.T) {
+	for _, tc := range []struct {
+		label string
+		want  bool
+	}{
+		{"cla: yes", true},
+		{"cla: no", true},
+		{"CLA: YES", true},
+		{"not-a-cla: no", false},
+		{"cla: yellow", false},
+		{"cla: no-longer-required", false},
+		{"cla: yes-ish", false},
+		{"cla: no thanks", false},
+	} {
+		t.Run(tc.label, func(t *testing.T) {
+			got, err := regexp.MatchString(prLabelMatcher, tc.label)
+			if err != nil || got != tc.want {
+				t.Errorf("match=%v error=%v want=%v", got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestPR10ReviewPositiveControlsForActualFixes(t *testing.T) {
+	if !(checker{owner: "Progressive-Insurance"}).isKnown() {
+		t.Error("mixed-case known owner should match")
+	}
+	for _, tc := range []struct {
+		text string
+		want bool
+	}{
+		{"Please sign the CLA.", true},
+		{"cla", true},
+		{"Contributor Licence Agreement", true},
+		{"CLASS", false},
+		{"CLAMP", false},
+	} {
+		got, err := (checker{}).referencesCLAInContent([]byte(tc.text))
+		if err != nil || got != tc.want {
+			t.Errorf("%q: got %v, %v; want %v", tc.text, got, err, tc.want)
+		}
+	}
+	client := github.NewClient(&http.Client{Transport: pr10ReviewTransport(func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("missing workflow directory must not request %s", req.URL)
+	})})
+	c := checker{client: client, tree: &github.Tree{Entries: []*github.TreeEntry{}}}
+	got, err := c.usesCLAAssistantAction(context.Background())
+	if err != nil || got {
+		t.Errorf("missing workflows should be negative without any client request: %v, %v", got, err)
+	}
+}

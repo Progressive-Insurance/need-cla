@@ -59,7 +59,8 @@ func (c checker) isKnownCheck(ctx context.Context) result {
 
 func (c checker) isKnown() bool {
 	for _, o := range knownOwners {
-		if o == c.owner {
+		// GitHub owner names are case-insensitive, so compare case-insensitively.
+		if strings.EqualFold(o, c.owner) {
 			return true
 		}
 	}
@@ -78,6 +79,12 @@ func (c checker) hasCLATagCheck(ctx context.Context) result {
 	}
 }
 
+// maxCLATagPages bounds how many pages of PRs hasCLATag scans. PRs are listed
+// most-recently-created first, so a recently introduced cla tag is found within
+// these pages; capping the scan keeps API usage bounded rather than paging
+// through every PR in long-lived repos.
+const maxCLATagPages = 10
+
 func (c checker) hasCLATag(ctx context.Context) (bool, error) {
 	opts := &github.PullRequestListOptions{
 		ListOptions: github.ListOptions{
@@ -85,20 +92,26 @@ func (c checker) hasCLATag(ctx context.Context) (bool, error) {
 		},
 		State: "all",
 	}
-	prs, _, err := c.client.PullRequests.List(ctx, c.owner, c.repo, opts)
-	if err != nil {
-		return false, fmt.Errorf("error getting %s/%s PRs: %v", c.owner, c.repo, err)
-	}
-	errs := make([]error, 0, 100)
-	for _, pr := range prs {
-		for _, label := range pr.Labels {
-			match, err := regexp.Match(prLabelMatcher, []byte(label.GetName()))
-			if err != nil {
-				errs = append(errs, err)
+	var errs []error
+	for page := 0; ; page++ {
+		opts.Page = page
+		prs, _, err := c.client.PullRequests.List(ctx, c.owner, c.repo, opts)
+		if err != nil {
+			return false, fmt.Errorf("error getting %s/%s PRs: %v", c.owner, c.repo, err)
+		}
+		for _, pr := range prs {
+			for _, label := range pr.Labels {
+				match, err := regexp.Match(prLabelMatcher, []byte(label.GetName()))
+				if err != nil {
+					errs = append(errs, err)
+				}
+				if match {
+					return true, nil
+				}
 			}
-			if match {
-				return true, nil
-			}
+		}
+		if len(prs) < opts.PerPage || page >= maxCLATagPages-1 {
+			break
 		}
 	}
 	if len(errs) != 0 {
@@ -106,7 +119,7 @@ func (c checker) hasCLATag(ctx context.Context) (bool, error) {
 		for _, err := range errs {
 			lines = append(lines, fmt.Sprintf("* %v", err))
 		}
-		return false, fmt.Errorf("%d errors(s) checking recent PR labels:\n\t%s", len(errs), strings.Join(lines, "\n\t"))
+		return false, fmt.Errorf("%d errors(s) checking PR labels:\n\t%s", len(errs), strings.Join(lines, "\n\t"))
 	}
 
 	return false, nil
@@ -184,6 +197,10 @@ func (c checker) referencesCLAInREADME(ctx context.Context) (bool, error) {
 	return c.referencesCLAInContent(content)
 }
 
+// maxWorkflowFiles bounds how many .github/workflows files usesCLAAssistantAction
+// reads, keeping its blob fetches bounded for repos with many workflows.
+const maxWorkflowFiles = 50
+
 func (c checker) usesCLAAssistantAction(ctx context.Context) (bool, error) {
 	workflowsEntry, err := c.find(".github/workflows")
 	if err != nil {
@@ -192,13 +209,21 @@ func (c checker) usesCLAAssistantAction(ctx context.Context) (bool, error) {
 		}
 		return false, err
 	}
+	if workflowsEntry == nil {
+		// The repo has no .github/workflows directory, so it doesn't use
+		// GitHub Actions. find returns (nil, nil) for a missing path.
+		return false, nil
+	}
 	workflowsTree, _, err := c.client.Git.GetTree(ctx, c.owner, c.repo, workflowsEntry.GetSHA(), false)
 	if err != nil {
-		return false, fmt.Errorf("failed to get %s/%s/master/.github/workflows tree: %v", c.owner, c.repo, err)
+		return false, fmt.Errorf("failed to get %s/%s/%s/.github/workflows tree: %v", c.owner, c.repo, c.branch, err)
 	}
 
 	errs := make(map[string]error)
-	for _, e := range workflowsTree.Entries {
+	for i, e := range workflowsTree.Entries {
+		if i >= maxWorkflowFiles {
+			break
+		}
 		content, err := c.contentAtSHA(ctx, e.GetSHA())
 		if err != nil {
 			errs[e.GetPath()] = err
@@ -260,7 +285,10 @@ func (c checker) find(path string) (*github.TreeEntry, error) {
 	// need to do our own recursion to the path
 	// }
 	for _, e := range c.tree.Entries {
-		if e.GetPath() == path {
+		// GitHub tree paths are case-sensitive on the wire, but repo authors use a
+		// mix of cases (README.md vs readme.md), so compare case-insensitively to
+		// stay consistent with the case-insensitivity applied to the other checks.
+		if strings.EqualFold(e.GetPath(), path) {
 			return e, nil
 		}
 	}
@@ -287,10 +315,7 @@ func (c checker) contentAtPath(ctx context.Context, path string) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("error getting %s blob: %v", path, err)
 	}
-	if b.GetEncoding() != "base64" {
-		return nil, fmt.Errorf("blob is encoded %s, only base64 is supported", b.GetEncoding())
-	}
-	return base64.StdEncoding.DecodeString(b.GetContent())
+	return decodeBlob(b, path)
 }
 
 func (c checker) contentAtSHA(ctx context.Context, sha string) ([]byte, error) {
@@ -298,10 +323,26 @@ func (c checker) contentAtSHA(ctx context.Context, sha string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting %s blob: %v", sha, err)
 	}
-	if b.GetEncoding() != "base64" {
-		return nil, fmt.Errorf("blob is encoded %s, only base64 is supported", b.GetEncoding())
+	return decodeBlob(b, sha)
+}
+
+// decodeBlob decodes a git blob's content. The git blobs endpoint returns content
+// base64-encoded with encoding "base64"; a missing or "text" encoding is treated
+// as raw content rather than an error, so a change in the encoding the API
+// reports does not turn a readable file into a failure.
+func decodeBlob(b *github.Blob, label string) ([]byte, error) {
+	switch b.GetEncoding() {
+	case "base64":
+		content, err := base64.StdEncoding.DecodeString(b.GetContent())
+		if err != nil {
+			return nil, fmt.Errorf("error decoding %s blob: %v", label, err)
+		}
+		return content, nil
+	case "", "text":
+		return []byte(b.GetContent()), nil
+	default:
+		return nil, fmt.Errorf("blob %s is encoded %s, only base64 is supported", label, b.GetEncoding())
 	}
-	return base64.StdEncoding.DecodeString(b.GetContent())
 }
 
 func (c checker) referencesCLAInContent(content []byte) (bool, error) {

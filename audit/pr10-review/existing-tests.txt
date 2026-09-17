@@ -1,0 +1,9 @@
+Commit: 325201f1d0f7c7f05463f08383325e9c05cb6501
+Toolchain: go version go1.25.12 windows/amd64
+Environment: GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
+Command: go test -count=1 -short -timeout=45s -coverprofile=review-coverage.out ./...
+
+ok  	github.com/progressive-insurance/need-cla	0.646s	coverage: 31.8% of statements
+	github.com/progressive-insurance/need-cla/cmd/need-cla		coverage: 0.0% of statements
+
+Exit code: 0

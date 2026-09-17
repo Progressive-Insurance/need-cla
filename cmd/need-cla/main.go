@@ -32,9 +32,7 @@ func main() {
 	}
 	ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("CLA"))
 	var httpClient *http.Client
-	if token == "" {
-		httpClient = nil
-	} else {
+	if token != "" {
 		ctx := context.Background()
 		ts := oauth2.StaticTokenSource(
 			&oauth2.Token{AccessToken: token},
@@ -45,6 +43,10 @@ func main() {
 	client := github.NewClient(httpClient)
 	owner := fs.Arg(0)
 	repo := fs.Arg(1)
+	if owner == "" || repo == "" {
+		fs.Usage()
+		os.Exit(2)
+	}
 
 	d, err := needcla.Detail(client, owner, repo)
 	if err != nil {
@@ -60,7 +62,7 @@ func main() {
 		fmt.Sprintf("* %s %s a known CLA requirer", owner, is(d.Known)),
 		fmt.Sprintf("* CONTRIBUTING.md %s reference a CLA", does(d.InContributing)),
 		fmt.Sprintf("* README.md %s reference a CLA", does(d.InREADME)),
-		fmt.Sprintf("* %s use the cla-bot Github Action", does(d.Action)),
+		fmt.Sprintf("* a .github/workflow %s use the cla-assistant GitHub Action", does(d.Action)),
 		fmt.Sprintf("* PRs %s have \"cla\" tags", do(d.Tag)),
 		fmt.Sprintf("* .clabot file %s exist", does(d.BotFile)),
 	}

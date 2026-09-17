@@ -1,0 +1,60 @@
+Commit: 325201f1d0f7c7f05463f08383325e9c05cb6501
+Toolchain: go version go1.25.12 windows/amd64
+Environment: GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
+Command: go test -count=1 -short -timeout=45s -run ^TestPR10 -v .
+
+=== RUN   TestPR10ReviewWorkflowCapMustNotReturnCleanNegative
+    pr10_review_test.go:92: Action=false error=<nil> blob requests=50; CLA action is in file 51
+    pr10_review_test.go:94: workflow budget exhausted with files uninspected, but returned a clean negative
+--- FAIL: TestPR10ReviewWorkflowCapMustNotReturnCleanNegative (0.00s)
+=== RUN   TestPR10ReviewCaseVariantCannotShadowExactWorkflowDirectory
+    pr10_review_test.go:123: Action=false error=<nil> requests=[/repos/o/r/git/trees/wrong-case]
+    pr10_review_test.go:125: differently cased path shadowed the exact active workflow directory
+--- FAIL: TestPR10ReviewCaseVariantCannotShadowExactWorkflowDirectory (0.00s)
+=== RUN   TestPR10ReviewPaginationDoesNotDuplicateFirstPageOrMissTenth
+    pr10_review_test.go:158: Tag=false error=<nil> pages requested=[1 1 2 3 4 5 6 7 8 9]
+    pr10_review_test.go:162: page 1 requested more than once
+    pr10_review_test.go:167: ten-page scan missed the label on page ten
+--- FAIL: TestPR10ReviewPaginationDoesNotDuplicateFirstPageOrMissTenth (0.00s)
+=== RUN   TestPR10ReviewMissingBlobEncodingIsNotCleanNegative
+=== RUN   TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/empty_object
+    pr10_review_test.go:193: InREADME=false error=<nil>
+    pr10_review_test.go:195: missing blob encoding accepted as established raw content
+=== RUN   TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/base64_content_without_metadata
+    pr10_review_test.go:193: InREADME=false error=<nil>
+    pr10_review_test.go:195: missing blob encoding accepted as established raw content
+--- FAIL: TestPR10ReviewMissingBlobEncodingIsNotCleanNegative (0.00s)
+    --- FAIL: TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/empty_object (0.00s)
+    --- FAIL: TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/base64_content_without_metadata (0.00s)
+=== RUN   TestPR10ReviewNineteenRequestsAreEnoughForSmallScan
+    pr10_review_test.go:227: Required=false error=remaining github rate limit too low
+    pr10_review_test.go:229: healthy scan with ample remaining quota was rejected
+--- FAIL: TestPR10ReviewNineteenRequestsAreEnoughForSmallScan (0.00s)
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/CLA:_YES
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/not-a-cla:_no
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yellow
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no-longer-required
+    pr10_review_test.go:253: match=true error=<nil> want=false
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes-ish
+    pr10_review_test.go:253: match=true error=<nil> want=false
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no_thanks
+    pr10_review_test.go:253: match=true error=<nil> want=false
+--- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/CLA:_YES (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/not-a-cla:_no (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yellow (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no-longer-required (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes-ish (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no_thanks (0.00s)
+=== RUN   TestPR10ReviewPositiveControlsForActualFixes
+--- PASS: TestPR10ReviewPositiveControlsForActualFixes (0.00s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla	0.592s
+FAIL
+
+Exit code: 1

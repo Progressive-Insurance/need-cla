@@ -1,0 +1,62 @@
+Commit: d5221423a4e0476e4fe8379238c86301a6c0033b
+Toolchain: go version go1.25.12 windows/amd64
+Environment: GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local
+Command: go test -count=1 -short -timeout=45s -run ^TestPR10 -v .
+
+=== RUN   TestPR10ReviewWorkflowCapMustNotReturnCleanNegative
+    pr10_review_test.go:92: Action=true error=<nil> blob requests=51; CLA action is in file 51
+--- PASS: TestPR10ReviewWorkflowCapMustNotReturnCleanNegative (0.00s)
+=== RUN   TestPR10ReviewCaseVariantCannotShadowExactWorkflowDirectory
+    pr10_review_test.go:123: Action=true error=<nil> requests=[/repos/o/r/git/trees/active /repos/o/r/git/blobs/cla]
+--- PASS: TestPR10ReviewCaseVariantCannotShadowExactWorkflowDirectory (0.00s)
+=== RUN   TestPR10ReviewPaginationDoesNotDuplicateFirstPageOrMissTenth
+    pr10_review_test.go:158: Tag=false error=<nil> pages requested=[1]
+    pr10_review_test.go:167: ten-page scan missed the label on page ten
+--- FAIL: TestPR10ReviewPaginationDoesNotDuplicateFirstPageOrMissTenth (0.00s)
+=== RUN   TestPR10ReviewMissingBlobEncodingIsNotCleanNegative
+=== RUN   TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/empty_object
+    pr10_review_test.go:193: InREADME=false error=failed to check README.md: blob is encoded , only base64 is supported
+=== RUN   TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/base64_content_without_metadata
+    pr10_review_test.go:193: InREADME=false error=failed to check README.md: blob is encoded , only base64 is supported
+--- PASS: TestPR10ReviewMissingBlobEncodingIsNotCleanNegative (0.00s)
+    --- PASS: TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/empty_object (0.00s)
+    --- PASS: TestPR10ReviewMissingBlobEncodingIsNotCleanNegative/base64_content_without_metadata (0.00s)
+=== RUN   TestPR10ReviewNineteenRequestsAreEnoughForSmallScan
+    pr10_review_test.go:227: Required=false error=<nil>
+--- PASS: TestPR10ReviewNineteenRequestsAreEnoughForSmallScan (0.00s)
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/CLA:_YES
+    pr10_review_test.go:253: match=false error=<nil> want=true
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/not-a-cla:_no
+    pr10_review_test.go:253: match=true error=<nil> want=false
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yellow
+    pr10_review_test.go:253: match=true error=<nil> want=false
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no-longer-required
+    pr10_review_test.go:253: match=true error=<nil> want=false
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes-ish
+    pr10_review_test.go:253: match=true error=<nil> want=false
+=== RUN   TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no_thanks
+    pr10_review_test.go:253: match=true error=<nil> want=false
+--- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes (0.00s)
+    --- PASS: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/CLA:_YES (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/not-a-cla:_no (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yellow (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no-longer-required (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_yes-ish (0.00s)
+    --- FAIL: TestPR10ReviewPRLabelMustEndAfterYesOrNo/cla:_no_thanks (0.00s)
+=== RUN   TestPR10ReviewPositiveControlsForActualFixes
+    pr10_review_test.go:261: mixed-case known owner should match
+    pr10_review_test.go:275: "Please sign the CLA.": got false, <nil>; want true
+    pr10_review_test.go:275: "cla": got false, <nil>; want true
+    pr10_review_test.go:275: "Contributor Licence Agreement": got false, <nil>; want true
+    pr10_review_test.go:284: missing workflows should be negative without any client request: false, failed to get //master/.github/workflows tree: Get "https://api.github.com/repos///git/trees/": missing workflow directory must not request https://api.github.com/repos///git/trees/
+--- FAIL: TestPR10ReviewPositiveControlsForActualFixes (0.00s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla	0.533s
+FAIL
+
+Exit code: 1
