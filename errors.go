@@ -77,3 +77,25 @@ func (e *Errors) ErrOrNil() error {
 	}
 	return e
 }
+
+// Is reports whether any error stored in the aggregate matches target. The
+// fields are checked in the same deterministic order as Error, delegating
+// to the standard library for each populated field.
+func (e Errors) Is(target error) bool {
+	return errors.Is(e.TagErr, target) ||
+		errors.Is(e.BotFileErr, target) ||
+		errors.Is(e.InContributingErr, target) ||
+		errors.Is(e.InREADMEErr, target) ||
+		errors.Is(e.ActionErr, target)
+}
+
+// As reports whether any error stored in the aggregate matches target. The
+// fields are checked in the same deterministic order as Error, delegating
+// to the standard library for each populated field.
+func (e Errors) As(target interface{}) bool {
+	return errors.As(e.TagErr, target) ||
+		errors.As(e.BotFileErr, target) ||
+		errors.As(e.InContributingErr, target) ||
+		errors.As(e.InREADMEErr, target) ||
+		errors.As(e.ActionErr, target)
+}

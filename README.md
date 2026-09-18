@@ -27,22 +27,32 @@ go get github.com/progressive-insurance/need-cla
 
 ### Usage
 
-First, import the library:
+The example below is a complete program. It uses the
+`github.com/google/go-github/v43` client that this library's API accepts:
 
 ```go
-import needcla "github.com/progressive-insurance/need-cla"
-```
+package main
 
-Then, create a GitHub client and check if a repository needs a CLA:
+import (
+	"fmt"
+	"os"
 
-```go
-client := github.NewClient(nil) // this typically comes from github.com/google/go-github/v38/github
-needCla, err := needcla.Check(client, "google", "go-github")
-if err != nil {
-  // handle
-}
-if needCla {
-  fmt.Println("it needs a CLA signed!")
+	"github.com/google/go-github/v43/github"
+	needcla "github.com/progressive-insurance/need-cla"
+)
+
+func main() {
+	client := github.NewClient(nil)
+	needCla, err := needcla.Check(client, "google", "go-github")
+	if err != nil {
+		// The check was incomplete, so the result is not proof that no
+		// CLA is required.
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if needCla {
+		fmt.Println("it needs a CLA signed!")
+	}
 }
 ```
 

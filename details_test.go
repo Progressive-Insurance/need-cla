@@ -1,46 +1,31 @@
 package needcla_test
 
 import (
-	"math/rand"
+	"fmt"
 	"testing"
-	"time"
 
 	needcla "github.com/progressive-insurance/need-cla"
 )
 
+// TestDetailsRequired deterministically exercises all 64 boolean states of
+// the six Details fields. Bit i of the mask maps to the i-th field in struct
+// order, so dropping any operand from Required() fails that field's one-hot
+// state, and the zero and all-true states are covered explicitly.
 func TestDetailsRequired(t *testing.T) {
-	t.Run("NotRequired", func(t *testing.T) {
-		d := needcla.Details{}
-		if d.Required() {
-			t.Errorf("got required from zero value")
+	for mask := 0; mask < 64; mask++ {
+		d := needcla.Details{
+			Known:          mask&0b000001 != 0,
+			Tag:            mask&0b000010 != 0,
+			BotFile:        mask&0b000100 != 0,
+			InContributing: mask&0b001000 != 0,
+			InREADME:       mask&0b010000 != 0,
+			Action:         mask&0b100000 != 0,
 		}
-	})
-
-	t.Run("Required", func(t *testing.T) {
-		rand.Seed(time.Now().Unix())
-		for runs := 0; runs < 20; runs++ {
-
-			tt := []bool{false, false, false, false, false, false}
-			trues := rand.Intn(5) + 1
-			for i := 0; i < trues; i++ {
-				tt[i] = true
+		want := mask != 0
+		t.Run(fmt.Sprintf("mask%02d", mask), func(t *testing.T) {
+			if got := d.Required(); got != want {
+				t.Errorf("Required() = %v for mask %02b (%+v); want %v", got, mask, d, want)
 			}
-			rand.Shuffle(len(tt), func(i, j int) {
-				tt[i], tt[j] = tt[j], tt[i]
-			})
-
-			d := needcla.Details{
-				Known:          tt[0],
-				Tag:            tt[1],
-				BotFile:        tt[2],
-				InContributing: tt[3],
-				InREADME:       tt[4],
-				Action:         tt[5],
-			}
-
-			if !d.Required() {
-				t.Errorf("got not required from %+v", d)
-			}
-		}
-	})
+		})
+	}
 }
