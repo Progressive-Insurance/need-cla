@@ -1,0 +1,34 @@
+Offline CLI review probes; main.go copied from the current working tree.
+UTC: 2026-09-17T13:07:29.3577842Z
+Source fixture: audit/review_cli_test.go.txt
+Command: go test -v -count=1 -timeout=10s <temporary-main.go> <temporary-main_test.go>
+Exit status: 1
+
+=== RUN   TestReviewHelpExitsSuccessfully
+    main_test.go:44: code=1 stdout="" stderr="Usage of ./need-cla: need-cla [-h] [-token GITHUB_PERSONAL_ACCESS_TOKEN] [-timeout DURATION] owner repo\n  -token string\n  \tGitHub personal access token, can also be passed as CLA_TOKEN env var\n  -timeout duration\n  \tOverall request deadline, can also be passed as CLA_TIMEOUT (default 1m)\n"
+    main_test.go:45: help must succeed, got exit 1
+--- FAIL: TestReviewHelpExitsSuccessfully (0.00s)
+=== RUN   TestReviewMalformedTimeoutEnvironmentHasDiagnostic
+    main_test.go:53: code=1 stdout="" stderr=""
+    main_test.go:54: want nonzero exit and CLA_TIMEOUT diagnostic
+--- FAIL: TestReviewMalformedTimeoutEnvironmentHasDiagnostic (0.00s)
+=== RUN   TestReviewStalledRequestHonorsConfiguredDeadline
+    main_test.go:72: code=1 elapsed=11.7108ms stdout="" stderr="need-cla: rate limit lookup: context deadline exceeded\n"
+--- PASS: TestReviewStalledRequestHonorsConfiguredDeadline (0.01s)
+=== RUN   TestReviewVerdictControls
+=== RUN   TestReviewVerdictControls/clean_negative
+    main_test.go:104: code=0 stdout="I found that audit-owner/audit-repo:\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES NOT reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs DO NOT have \"cla\" tags\n\t* .clabot file DOES NOT exist\n[✗] I think audit-owner/audit-repo DOES NOT need a CLA signed before contributing.\n" stderr=""
+=== RUN   TestReviewVerdictControls/clean_positive
+    main_test.go:104: code=0 stdout="I found that audit-owner/audit-repo:\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs DO NOT have \"cla\" tags\n\t* .clabot file DOES NOT exist\n[✓] I think audit-owner/audit-repo DOES need a CLA signed before contributing.\n" stderr=""
+=== RUN   TestReviewVerdictControls/partial_unknown
+    main_test.go:104: code=3 stdout="I found that audit-owner/audit-repo (scan incomplete, see diagnostics):\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES NOT reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs could not be checked\n\t* .clabot file DOES NOT exist\n[✗] The scan for audit-owner/audit-repo is INCOMPLETE: no positive evidence was found, but at least one heuristic failed, so this is not a reliable negative result.\n" stderr="1 error(s) checking for CLA references:\n\t* checking for CLA tag: error getting audit-owner/audit-repo PRs: GET https://api.github.com/repos/audit-owner/audit-repo/pulls?per_page=100&state=all: 500 fixture PR failure []\n\n"
+=== RUN   TestReviewVerdictControls/partial_positive
+    main_test.go:104: code=3 stdout="I found that audit-owner/audit-repo (scan incomplete, see diagnostics):\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs could not be checked\n\t* .clabot file DOES NOT exist\n[✓] I think audit-owner/audit-repo DOES need a CLA signed before contributing (positive evidence was found), but the scan is INCOMPLETE: at least one heuristic failed, so additional evidence may exist.\n" stderr="1 error(s) checking for CLA references:\n\t* checking for CLA tag: error getting audit-owner/audit-repo PRs: GET https://api.github.com/repos/audit-owner/audit-repo/pulls?per_page=100&state=all: 500 fixture PR failure []\n\n"
+--- PASS: TestReviewVerdictControls (0.02s)
+    --- PASS: TestReviewVerdictControls/clean_negative (0.01s)
+    --- PASS: TestReviewVerdictControls/clean_positive (0.01s)
+    --- PASS: TestReviewVerdictControls/partial_unknown (0.01s)
+    --- PASS: TestReviewVerdictControls/partial_positive (0.00s)
+FAIL
+FAIL	command-line-arguments	0.549s
+FAIL

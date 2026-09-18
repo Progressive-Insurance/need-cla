@@ -1,0 +1,94 @@
+Command: go test -count=1 -short -timeout=45s -run ^TestReview -v ./...
+Exit code: 1
+
+=== RUN   TestReviewAuthenticationClassificationDoesNotDependOnEndpoint
+=== RUN   TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//rate_limit
+    review_api_test.go:31: 401 at /rate_limit lost its original typed GitHub cause: rate limit lookup: invalid personal access token
+=== RUN   TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//repos/example/project
+    review_api_test.go:31: 401 at /repos/example/project lost its original typed GitHub cause: repository metadata: invalid personal access token
+=== RUN   TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//repos/example/project/git/trees/main
+    review_api_test.go:28: 401 at /repos/example/project/git/trees/main did not expose ErrInvalidToken: 4 error(s) checking for CLA references:
+        	* checking for .clabot file: failed to load the repository tree: failed to get example/project tree for "main": GET https://api.github.com/repos/example/project/git/trees/main?recursive=1: 401 Bad credentials []
+        	* checking for CLA references in CONTRIBUTING.md: failed to load the repository tree: failed to get example/project tree for "main": GET https://api.github.com/repos/example/project/git/trees/main?recursive=1: 401 Bad credentials []
+        	* checking for CLA references in README.md: failed to load the repository tree: failed to get example/project tree for "main": GET https://api.github.com/repos/example/project/git/trees/main?recursive=1: 401 Bad credentials []
+        	* checking for cla-assistant Action: failed to load the repository tree: failed to get example/project tree for "main": GET https://api.github.com/repos/example/project/git/trees/main?recursive=1: 401 Bad credentials []
+=== RUN   TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//repos/example/project/pulls
+    review_api_test.go:28: 401 at /repos/example/project/pulls did not expose ErrInvalidToken: 1 error(s) checking for CLA references:
+        	* checking for CLA tag: error getting example/project PRs: GET https://api.github.com/repos/example/project/pulls?per_page=100&state=all: 401 Bad credentials []
+--- FAIL: TestReviewAuthenticationClassificationDoesNotDependOnEndpoint (0.00s)
+    --- FAIL: TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//rate_limit (0.00s)
+    --- FAIL: TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//repos/example/project (0.00s)
+    --- FAIL: TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//repos/example/project/git/trees/main (0.00s)
+    --- FAIL: TestReviewAuthenticationClassificationDoesNotDependOnEndpoint//repos/example/project/pulls (0.00s)
+=== RUN   TestReviewBranchEncodingControls
+=== RUN   TestReviewBranchEncodingControls/main
+=== RUN   TestReviewBranchEncodingControls/release/foo
+=== RUN   TestReviewBranchEncodingControls/release#1
+=== RUN   TestReviewBranchEncodingControls/release%61
+--- PASS: TestReviewBranchEncodingControls (0.00s)
+    --- PASS: TestReviewBranchEncodingControls/main (0.00s)
+    --- PASS: TestReviewBranchEncodingControls/release/foo (0.00s)
+    --- PASS: TestReviewBranchEncodingControls/release#1 (0.00s)
+    --- PASS: TestReviewBranchEncodingControls/release%61 (0.00s)
+=== RUN   TestReviewExtraYAMLDocuments
+=== RUN   TestReviewExtraYAMLDocuments/positive_first_then_malformed
+    review_heuristics_test.go:29: found=true err=<nil>
+    review_heuristics_test.go:31: additional/malformed document accepted without error
+=== RUN   TestReviewExtraYAMLDocuments/negative_first_then_malformed
+    review_heuristics_test.go:29: found=false err=<nil>
+    review_heuristics_test.go:31: additional/malformed document accepted without error
+=== RUN   TestReviewExtraYAMLDocuments/positive_first_then_valid_second
+    review_heuristics_test.go:29: found=true err=<nil>
+    review_heuristics_test.go:31: additional/malformed document accepted without error
+--- FAIL: TestReviewExtraYAMLDocuments (0.00s)
+    --- FAIL: TestReviewExtraYAMLDocuments/positive_first_then_malformed (0.00s)
+    --- FAIL: TestReviewExtraYAMLDocuments/negative_first_then_malformed (0.00s)
+    --- FAIL: TestReviewExtraYAMLDocuments/positive_first_then_valid_second (0.00s)
+=== RUN   TestReviewRemoteReferences
+=== RUN   TestReviewRemoteReferences/contributor-assistant/github-action
+    review_heuristics_test.go:40: invalid remote action reference accepted
+=== RUN   TestReviewRemoteReferences/contributor-assistant/github-action@
+    review_heuristics_test.go:40: invalid remote action reference accepted
+=== RUN   TestReviewRemoteReferences/contributor-assistant/github-action@v2@garbage
+    review_heuristics_test.go:40: invalid remote action reference accepted
+--- FAIL: TestReviewRemoteReferences (0.00s)
+    --- FAIL: TestReviewRemoteReferences/contributor-assistant/github-action (0.00s)
+    --- FAIL: TestReviewRemoteReferences/contributor-assistant/github-action@ (0.00s)
+    --- FAIL: TestReviewRemoteReferences/contributor-assistant/github-action@v2@garbage (0.00s)
+=== RUN   TestReviewWhitespaceLabel
+    review_heuristics_test.go:48: documented surrounding whitespace not tolerated: " cla: yes"
+    review_heuristics_test.go:48: documented surrounding whitespace not tolerated: "cla: no "
+    review_heuristics_test.go:48: documented surrounding whitespace not tolerated: " cla: yes "
+--- FAIL: TestReviewWhitespaceLabel (0.00s)
+=== RUN   TestReviewAnchor
+--- PASS: TestReviewAnchor (0.00s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla	0.537s
+=== RUN   TestReviewHelpExitsSuccessfully
+    review_cli_test.go:49: code=1 stdout="" stderr="Usage of ./need-cla: need-cla [-h] [-token GITHUB_PERSONAL_ACCESS_TOKEN] [-timeout DURATION] owner repo\n  -token string\n  \tGitHub personal access token, can also be passed as CLA_TOKEN env var\n  -timeout duration\n  \tOverall request deadline, can also be passed as CLA_TIMEOUT (default 1m)\n"
+    review_cli_test.go:51: help must succeed, got exit 1
+--- FAIL: TestReviewHelpExitsSuccessfully (0.00s)
+=== RUN   TestReviewMalformedTimeoutEnvironmentHasDiagnostic
+    review_cli_test.go:60: code=1 stdout="" stderr=""
+    review_cli_test.go:62: want nonzero exit and CLA_TIMEOUT diagnostic
+--- FAIL: TestReviewMalformedTimeoutEnvironmentHasDiagnostic (0.00s)
+=== RUN   TestReviewStalledRequestHonorsConfiguredDeadline
+    review_cli_test.go:83: code=1 elapsed=11.7838ms stdout="" stderr="need-cla: rate limit lookup: context deadline exceeded\n"
+--- PASS: TestReviewStalledRequestHonorsConfiguredDeadline (0.01s)
+=== RUN   TestReviewVerdictControls
+=== RUN   TestReviewVerdictControls/clean_negative
+    review_cli_test.go:125: code=0 stdout="I found that audit-owner/audit-repo:\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES NOT reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs DO NOT have \"cla\" tags\n\t* .clabot file DOES NOT exist\n[✗] I think audit-owner/audit-repo DOES NOT need a CLA signed before contributing.\n" stderr=""
+=== RUN   TestReviewVerdictControls/clean_positive
+    review_cli_test.go:125: code=0 stdout="I found that audit-owner/audit-repo:\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs DO NOT have \"cla\" tags\n\t* .clabot file DOES NOT exist\n[✓] I think audit-owner/audit-repo DOES need a CLA signed before contributing.\n" stderr=""
+=== RUN   TestReviewVerdictControls/partial_unknown
+    review_cli_test.go:125: code=3 stdout="I found that audit-owner/audit-repo (scan incomplete, see diagnostics):\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES NOT reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs could not be checked\n\t* .clabot file DOES NOT exist\n[✗] The scan for audit-owner/audit-repo is INCOMPLETE: no positive evidence was found, but at least one heuristic failed, so this is not a reliable negative result.\n" stderr="1 error(s) checking for CLA references:\n\t* checking for CLA tag: error getting audit-owner/audit-repo PRs: GET https://api.github.com/repos/audit-owner/audit-repo/pulls?per_page=100&state=all: 500 fixture PR failure []\n\n"
+=== RUN   TestReviewVerdictControls/partial_positive
+    review_cli_test.go:125: code=3 stdout="I found that audit-owner/audit-repo (scan incomplete, see diagnostics):\n\t* audit-owner IS NOT a known CLA requirer\n\t* CONTRIBUTING.md DOES NOT reference a CLA\n\t* README.md DOES reference a CLA\n\t* workflows DOES NOT use the CLA Assistant GitHub Action\n\t* PRs could not be checked\n\t* .clabot file DOES NOT exist\n[✓] I think audit-owner/audit-repo DOES need a CLA signed before contributing (positive evidence was found), but the scan is INCOMPLETE: at least one heuristic failed, so additional evidence may exist.\n" stderr="1 error(s) checking for CLA references:\n\t* checking for CLA tag: error getting audit-owner/audit-repo PRs: GET https://api.github.com/repos/audit-owner/audit-repo/pulls?per_page=100&state=all: 500 fixture PR failure []\n\n"
+--- PASS: TestReviewVerdictControls (0.01s)
+    --- PASS: TestReviewVerdictControls/clean_negative (0.00s)
+    --- PASS: TestReviewVerdictControls/clean_positive (0.00s)
+    --- PASS: TestReviewVerdictControls/partial_unknown (0.00s)
+    --- PASS: TestReviewVerdictControls/partial_positive (0.00s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla/cmd/need-cla	0.561s
+FAIL

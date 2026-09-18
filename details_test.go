@@ -1,9 +1,7 @@
 package needcla_test
 
 import (
-	"math/rand"
 	"testing"
-	"time"
 
 	needcla "github.com/progressive-insurance/need-cla"
 )
@@ -16,31 +14,38 @@ func TestDetailsRequired(t *testing.T) {
 		}
 	})
 
-	t.Run("Required", func(t *testing.T) {
-		rand.Seed(time.Now().Unix())
-		for runs := 0; runs < 20; runs++ {
-
-			tt := []bool{false, false, false, false, false, false}
-			trues := rand.Intn(5) + 1
-			for i := 0; i < trues; i++ {
-				tt[i] = true
-			}
-			rand.Shuffle(len(tt), func(i, j int) {
-				tt[i], tt[j] = tt[j], tt[i]
-			})
-
-			d := needcla.Details{
-				Known:          tt[0],
-				Tag:            tt[1],
-				BotFile:        tt[2],
-				InContributing: tt[3],
-				InREADME:       tt[4],
-				Action:         tt[5],
-			}
-
+	// Deterministic single-flag coverage: each heuristic flag independently
+	// establishes that a CLA is required. This replaces the previous
+	// randomized test so every flag is proven on its own (including
+	// all-true) rather than by chance.
+	flags := []struct {
+		name string
+		set  func(d *needcla.Details)
+	}{
+		{"Known", func(d *needcla.Details) { d.Known = true }},
+		{"Tag", func(d *needcla.Details) { d.Tag = true }},
+		{"BotFile", func(d *needcla.Details) { d.BotFile = true }},
+		{"InContributing", func(d *needcla.Details) { d.InContributing = true }},
+		{"InREADME", func(d *needcla.Details) { d.InREADME = true }},
+		{"Action", func(d *needcla.Details) { d.Action = true }},
+	}
+	for _, f := range flags {
+		t.Run("single/"+f.name, func(t *testing.T) {
+			d := needcla.Details{}
+			f.set(&d)
 			if !d.Required() {
 				t.Errorf("got not required from %+v", d)
 			}
+		})
+	}
+
+	t.Run("all", func(t *testing.T) {
+		d := needcla.Details{
+			Known: true, Tag: true, BotFile: true,
+			InContributing: true, InREADME: true, Action: true,
+		}
+		if !d.Required() {
+			t.Errorf("got not required from all-true %+v", d)
 		}
 	})
 }

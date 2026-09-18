@@ -1,0 +1,43 @@
+Independent heuristic review, 2026-09-17
+Command: GOPROXY=off go test -v -run TestReview ./...
+Location: isolated temporary copy of unchanged current production sources
+Tests: audit/review_heuristics_test.go.txt
+Expected: desired-behavior assertions expose unfixed edge cases; anchor control passes.
+
+=== RUN   TestReviewExtraYAMLDocuments
+=== RUN   TestReviewExtraYAMLDocuments/positive_first_then_malformed
+    review_test.go:29: found=true err=<nil>
+    review_test.go:31: additional/malformed document accepted without error
+=== RUN   TestReviewExtraYAMLDocuments/negative_first_then_malformed
+    review_test.go:29: found=false err=<nil>
+    review_test.go:31: additional/malformed document accepted without error
+=== RUN   TestReviewExtraYAMLDocuments/positive_first_then_valid_second
+    review_test.go:29: found=true err=<nil>
+    review_test.go:31: additional/malformed document accepted without error
+--- FAIL: TestReviewExtraYAMLDocuments (0.00s)
+    --- FAIL: TestReviewExtraYAMLDocuments/positive_first_then_malformed (0.00s)
+    --- FAIL: TestReviewExtraYAMLDocuments/negative_first_then_malformed (0.00s)
+    --- FAIL: TestReviewExtraYAMLDocuments/positive_first_then_valid_second (0.00s)
+=== RUN   TestReviewRemoteReferences
+=== RUN   TestReviewRemoteReferences/contributor-assistant/github-action
+    review_test.go:40: invalid remote action reference accepted
+=== RUN   TestReviewRemoteReferences/contributor-assistant/github-action@
+    review_test.go:40: invalid remote action reference accepted
+=== RUN   TestReviewRemoteReferences/contributor-assistant/github-action@v2@garbage
+    review_test.go:40: invalid remote action reference accepted
+--- FAIL: TestReviewRemoteReferences (0.00s)
+    --- FAIL: TestReviewRemoteReferences/contributor-assistant/github-action (0.00s)
+    --- FAIL: TestReviewRemoteReferences/contributor-assistant/github-action@ (0.00s)
+    --- FAIL: TestReviewRemoteReferences/contributor-assistant/github-action@v2@garbage (0.00s)
+=== RUN   TestReviewWhitespaceLabel
+    review_test.go:48: documented surrounding whitespace not tolerated: " cla: yes"
+    review_test.go:48: documented surrounding whitespace not tolerated: "cla: no "
+    review_test.go:48: documented surrounding whitespace not tolerated: " cla: yes "
+--- FAIL: TestReviewWhitespaceLabel (0.00s)
+=== RUN   TestReviewAnchor
+--- PASS: TestReviewAnchor (0.00s)
+FAIL
+FAIL	github.com/progressive-insurance/need-cla	0.315s
+FAIL
+
+go test exit code: 1

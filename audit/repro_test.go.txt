@@ -1,0 +1,360 @@
+// Offline audit regressions. Copy this file to the repository root as
+// audit_regression_test.go and run: go test . -run '^TestAudit' -count=1 -v
+// These assertions describe desired behavior and intentionally fail before fixes.
+package needcla
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/google/go-github/v43/github"
+)
+
+type auditReply struct {
+	status int
+	body   string
+	err    error
+}
+
+type auditTransport struct {
+	mu     sync.Mutex
+	routes map[string]auditReply
+	paths  []string
+}
+
+func (a *auditTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	a.mu.Lock()
+	a.paths = append(a.paths, req.URL.Path)
+	r, ok := a.routes[req.URL.Path]
+	a.mu.Unlock()
+	if !ok {
+		r = auditReply{status: http.StatusNotFound, body: `{"message":"unexpected fixture request"}`}
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	return &http.Response{
+		StatusCode: r.status,
+		Status:     fmt.Sprintf("%d %s", r.status, http.StatusText(r.status)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(r.body)),
+		Request:    req,
+	}, nil
+}
+
+func (a *auditTransport) requests() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.paths...)
+}
+
+func auditClient(routes map[string]auditReply) (*github.Client, *auditTransport) {
+	transport := &auditTransport{routes: routes}
+	return github.NewClient(&http.Client{Transport: transport}), transport
+}
+
+func auditJSON(v interface{}) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+func auditEntry(path, kind, sha string) *github.TreeEntry {
+	return &github.TreeEntry{Path: github.String(path), Type: github.String(kind), SHA: github.String(sha)}
+}
+
+func auditRate(remaining int) auditReply {
+	return auditReply{body: fmt.Sprintf(`{"resources":{"core":{"limit":5000,"remaining":%d,"reset":2000000000}}}`, remaining)}
+}
+
+func auditHealthyRoutes(remaining int) map[string]auditReply {
+	return map[string]auditReply{
+		"/rate_limit":                  auditRate(remaining),
+		"/repos/example/project":       {body: `{"default_branch":"main"}`},
+		"/repos/example/project/pulls": {body: `[]`},
+		"/repos/example/project/git/trees/main": {body: auditJSON(github.Tree{
+			Entries: []*github.TreeEntry{auditEntry(".github/workflows", "tree", "workflows")},
+		})},
+		"/repos/example/project/git/trees/workflows": {body: `{"tree":[]}`},
+	}
+}
+
+func auditWorkflowChecker(path, kind, content string) checker {
+	client, _ := auditClient(map[string]auditReply{
+		"/repos/example/project/git/trees/workflows": {body: auditJSON(github.Tree{
+			Entries: []*github.TreeEntry{auditEntry(path, kind, "workflow-content")},
+		})},
+		"/repos/example/project/git/blobs/workflow-content": {body: auditJSON(map[string]string{
+			"encoding": "base64", "content": base64.StdEncoding.EncodeToString([]byte(content)),
+		})},
+	})
+	return checker{
+		client: client, owner: "example", repo: "project", branch: "main",
+		tree: &github.Tree{Entries: []*github.TreeEntry{auditEntry(".github/workflows", "tree", "workflows")}},
+	}
+}
+
+func TestAuditRepositoryTransportFailureReturnsErrorWithoutPanic(t *testing.T) {
+	want := errors.New("repository metadata transport failed")
+	client, _ := auditClient(map[string]auditReply{
+		"/rate_limit":            auditRate(100),
+		"/repos/example/project": {err: want},
+	})
+	defer func() {
+		if p := recover(); p != nil {
+			t.Errorf("DetailWithContext panicked on a transport error: %v", p)
+		}
+	}()
+	_, err := DetailWithContext(context.Background(), client, "example", "project")
+	if !errors.Is(err, want) {
+		t.Errorf("repository transport cause was not preserved: %v", err)
+	}
+}
+
+func TestAuditRepositoryHTTPFailureStopsAndPreservesCause(t *testing.T) {
+	client, transport := auditClient(map[string]auditReply{
+		"/rate_limit":            auditRate(100),
+		"/repos/example/project": {status: 500, body: `{"message":"metadata service unavailable"}`},
+	})
+	_, err := DetailWithContext(context.Background(), client, "example", "project")
+	var apiErr *github.ErrorResponse
+	if !errors.As(err, &apiErr) || apiErr.Response.StatusCode != 500 {
+		t.Errorf("expected the original repository HTTP 500 error, got: %v", err)
+	}
+	for _, path := range transport.requests() {
+		if strings.Contains(path, "/git/") {
+			t.Errorf("attempted tree lookup after metadata failed: %s", path)
+		}
+	}
+}
+
+func TestAuditMissingWorkflowsIsNegativeResultWithoutRequest(t *testing.T) {
+	client, transport := auditClient(nil)
+	c := checker{client: client, owner: "example", repo: "project", tree: &github.Tree{}}
+	got, err := c.usesCLAAssistantAction(context.Background())
+	if got || err != nil {
+		t.Errorf("missing workflows should be false/nil; got %v, %v", got, err)
+	}
+	if paths := transport.requests(); len(paths) != 0 {
+		t.Errorf("missing workflows must not request an empty SHA: %v", paths)
+	}
+}
+
+func TestAuditSmallScanAcceptsSufficientQuotaBelowTen(t *testing.T) {
+	client, transport := auditClient(auditHealthyRoutes(9))
+	details, err := DetailWithContext(context.Background(), client, "example", "project")
+	if err != nil || details.Required() {
+		t.Errorf("this empty repository needs only four requests after rate lookup; got %+v, %v", details, err)
+	}
+	if paths := transport.requests(); len(paths) < 2 {
+		t.Errorf("scan was rejected before using available quota: %v", paths)
+	}
+}
+
+func TestAuditKnownOwnerIsCaseInsensitive(t *testing.T) {
+	for _, owner := range []string{"google", "Google", "GOOGLE", "Progressive-Insurance"} {
+		t.Run(owner, func(t *testing.T) {
+			if !(checker{owner: owner}).isKnown() {
+				t.Errorf("known owner %q was not recognized", owner)
+			}
+		})
+	}
+}
+
+func TestAuditStandaloneCLAAcronymMatches(t *testing.T) {
+	for _, tt := range []struct {
+		text string
+		want bool
+	}{
+		{"Please sign the CLA before contributing.", true}, {"CLA", true}, {"Sign our **CLA**.", true},
+		{"Contributor License Agreement", true}, {"CLASS", false}, {"CLAMP", false}, {"", false},
+	} {
+		t.Run(tt.text, func(t *testing.T) {
+			got, err := (checker{}).referencesCLAInContent([]byte(tt.text))
+			if err != nil || got != tt.want {
+				t.Errorf("content %q: got %v, %v; want %v", tt.text, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuditPRLabelMatcherRequiresCompleteYesOrNo(t *testing.T) {
+	for _, tt := range []struct {
+		label string
+		want  bool
+	}{
+		{"cla: yes", true}, {"cla: no", true},
+		{"cla: yellow", false}, {"cla: nope", false},
+		{"cla: n", false}, {"cla: |", false},
+		{"not-cla: yes", false}, {"cla: yes-extra", false}, {"bug", false},
+	} {
+		t.Run(tt.label, func(t *testing.T) {
+			client, _ := auditClient(map[string]auditReply{
+				"/repos/example/project/pulls": {body: auditJSON([]interface{}{
+					map[string]interface{}{"labels": []interface{}{map[string]string{"name": tt.label}}},
+				})},
+			})
+			c := checker{client: client, owner: "example", repo: "project"}
+			got, err := c.hasCLATag(context.Background())
+			if err != nil || got != tt.want {
+				t.Errorf("label %q: got %v, %v; want %v, nil", tt.label, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuditCLABotDirectoryDoesNotCountAsConfigFile(t *testing.T) {
+	c := checker{tree: &github.Tree{Entries: []*github.TreeEntry{auditEntry(".clabot", "tree", "directory")}}}
+	got, err := c.hasCLABotFile(context.Background())
+	if got || err != nil {
+		t.Errorf(".clabot directory is not a config file; got %v, %v", got, err)
+	}
+}
+
+func TestAuditActionDetectionRespectsYAMLSyntaxAndExactRepository(t *testing.T) {
+	for _, tt := range []struct {
+		name, step string
+		want       bool
+	}{
+		{"plain", "      - uses: cla-assistant/github-action@v2\n", true},
+		{"single quoted", "      - uses: 'cla-assistant/github-action@v2'\n", true},
+		{"double quoted", "      - uses: \"cla-assistant/github-action@v2\"\n", true},
+		{"comment", "      # - uses: cla-assistant/github-action@v2\n      - run: echo ok\n", false},
+		{"repository prefix", "      - uses: cla-assistant/github-action-unrelated@v2\n", false},
+		{"shell text", "      - run: |\n          echo 'uses: cla-assistant/github-action@v2'\n", false},
+		{"current owner alias", "      - uses: contributor-assistant/github-action@v2\n", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			content := "name: CLA\non: pull_request\njobs:\n  cla:\n    runs-on: ubuntu-latest\n    steps:\n" + tt.step
+			c := auditWorkflowChecker("cla.yml", "blob", content)
+			got, err := c.usesCLAAssistantAction(context.Background())
+			if err != nil || got != tt.want {
+				t.Errorf("workflow %s: got %v, %v; want %v, nil", tt.name, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuditNonWorkflowFilesCannotEstablishAction(t *testing.T) {
+	c := auditWorkflowChecker("README.md", "blob", "Example only: uses: cla-assistant/github-action@v2\n")
+	got, err := c.usesCLAAssistantAction(context.Background())
+	if got || err != nil {
+		t.Errorf("README.md is not an executable workflow; got %v, %v", got, err)
+	}
+}
+
+func TestAuditWorkflowSubdirectoriesAreSkipped(t *testing.T) {
+	client, transport := auditClient(map[string]auditReply{
+		"/repos/example/project/git/trees/workflows": {body: auditJSON(github.Tree{
+			Entries: []*github.TreeEntry{auditEntry("archive", "tree", "archive-tree")},
+		})},
+	})
+	c := checker{
+		client: client, owner: "example", repo: "project",
+		tree: &github.Tree{Entries: []*github.TreeEntry{auditEntry(".github/workflows", "tree", "workflows")}},
+	}
+	got, err := c.usesCLAAssistantAction(context.Background())
+	if got || err != nil {
+		t.Errorf("a subdirectory is not a workflow and should be skipped; got %v, %v", got, err)
+	}
+	for _, path := range transport.requests() {
+		if strings.Contains(path, "/blobs/") {
+			t.Errorf("requested directory SHA from blobs API: %s", path)
+		}
+	}
+}
+
+func TestAuditTruncatedTreeCauseRemainsInspectable(t *testing.T) {
+	c := checker{tree: &github.Tree{Truncated: github.Bool(true)}}
+	checks := []struct {
+		name string
+		fn   func(context.Context) (bool, error)
+	}{
+		{"readme", c.referencesCLAInREADME},
+		{"contributing", c.referencesCLAInContributing},
+		{"action", c.usesCLAAssistantAction},
+	}
+	for _, check := range checks {
+		t.Run(check.name, func(t *testing.T) {
+			_, err := check.fn(context.Background())
+			if !errors.Is(err, ErrTruncatedTree) {
+				t.Errorf("truncated tree sentinel was lost: %v", err)
+			}
+		})
+	}
+}
+
+func TestAuditTreeFetchPreservesUnderlyingError(t *testing.T) {
+	want := errors.New("tree transport failure")
+	client, _ := auditClient(map[string]auditReply{
+		"/repos/example/project/git/trees/main": {err: want},
+	})
+	_, err := newChecker(context.Background(), client, "example", "project", "main")
+	if !errors.Is(err, want) {
+		t.Errorf("tree fetch lost its underlying cause: %v", err)
+	}
+}
+
+func TestAuditAggregateSupportsErrorsIsAndAs(t *testing.T) {
+	want := errors.New("underlying checker failure")
+	aggregate := &Errors{TagErr: want}
+	if !errors.Is(aggregate.ErrOrNil(), want) {
+		t.Errorf("errors.Is cannot find a contained checker failure: %v", aggregate)
+	}
+	apiErr := &github.ErrorResponse{Response: &http.Response{StatusCode: 500, Request: &http.Request{Method: "GET", URL: &url.URL{Scheme: "https", Host: "api.github.com", Path: "/audit"}}}, Message: "upstream error"}
+	aggregate = &Errors{InREADMEErr: apiErr}
+	var got *github.ErrorResponse
+	if !errors.As(aggregate.ErrOrNil(), &got) || got != apiErr {
+		t.Errorf("errors.As cannot find a contained GitHub API failure: %v", aggregate)
+	}
+}
+
+func TestAuditForbiddenIsNotAutomaticallyInvalidToken(t *testing.T) {
+	client, _ := auditClient(map[string]auditReply{
+		"/rate_limit":            auditRate(100),
+		"/repos/example/project": {status: 403, body: `{"message":"Resource not accessible by personal access token"}`},
+	})
+	_, err := DetailWithContext(context.Background(), client, "example", "project")
+	var apiErr *github.ErrorResponse
+	if errors.Is(err, ErrInvalidToken) || !errors.As(err, &apiErr) || apiErr.Response.StatusCode != 403 {
+		t.Errorf("permission denial should preserve its cause, not become invalid credentials: %v", err)
+	}
+}
+
+func TestAuditRateLimitUnauthorizedExposesInvalidToken(t *testing.T) {
+	client, _ := auditClient(map[string]auditReply{
+		"/rate_limit": {status: 401, body: `{"message":"Bad credentials"}`},
+	})
+	_, err := DetailWithContext(context.Background(), client, "example", "project")
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Errorf("authentication failure on initial request bypassed ErrInvalidToken: %v", err)
+	}
+}
+
+func TestAuditDefaultBranchIsEncodedAsPathData(t *testing.T) {
+	for _, branch := range []string{"release#1", "release%stable", "release%61"} {
+		t.Run(branch, func(t *testing.T) {
+			client, transport := auditClient(map[string]auditReply{
+				"/repos/example/project/git/trees/" + branch: {body: `{"tree":[],"truncated":false}`},
+			})
+			_, err := newChecker(context.Background(), client, "example", "project", branch)
+			if err != nil {
+				t.Errorf("legal Git branch must survive URL construction; branch=%q requests=%v error=%v", branch, transport.requests(), err)
+			}
+		})
+	}
+}

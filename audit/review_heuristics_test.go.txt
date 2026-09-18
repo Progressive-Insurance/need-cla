@@ -1,0 +1,58 @@
+// Independent review fixtures for the uncommitted model implementation, 2026-09-17.
+// Run against a temporary copy of production .go files plus go.mod/go.sum.
+// These are desired-behavior probes; failures below expose remaining edge cases.
+// No production files or existing repository tests were edited.
+//
+// Reference validation primary source (require exactly one @ and nonempty ref):
+// https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ObjectTemplating/PipelineTemplateConverter.cs#L577-L587
+//
+// YAML observation: yaml.Unmarshal consumes only the first document, so a
+// malformed trailing YAML document is never validated. The valid-second-document
+// case additionally tests an explicit single-document workflow policy; it is a
+// policy probe, distinct from the malformed-trailing-document syntax failures.
+// Source: https://pkg.go.dev/gopkg.in/yaml.v3#Unmarshal
+//
+// Whitespace is a documentation/implementation inconsistency in checks.go:145;
+// the strict label-matching policy itself is acceptable if documented accurately.
+package needcla
+
+import "testing"
+
+func TestReviewExtraYAMLDocuments(t *testing.T) {
+	for _, tc := range []struct{ name, content string }{
+		{"positive first then malformed", "jobs:\n  cla:\n    steps:\n      - uses: contributor-assistant/github-action@v2\n---\ninvalid: [unclosed"},
+		{"negative first then malformed", "jobs: {}\n---\ninvalid: [unclosed"},
+		{"positive first then valid second", "jobs:\n  cla:\n    steps:\n      - uses: contributor-assistant/github-action@v2\n---\nname: another"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			found, err := workflowUsesCLAAAction([]byte(tc.content))
+			t.Logf("found=%v err=%v", found, err)
+			if err == nil {
+				t.Error("additional/malformed document accepted without error")
+			}
+		})
+	}
+}
+func TestReviewRemoteReferences(t *testing.T) {
+	for _, ref := range []string{"contributor-assistant/github-action", "contributor-assistant/github-action@", "contributor-assistant/github-action@v2@garbage"} {
+		t.Run(ref, func(t *testing.T) {
+			if isCLAAActionReference(ref) {
+				t.Error("invalid remote action reference accepted")
+			}
+		})
+	}
+}
+func TestReviewWhitespaceLabel(t *testing.T) {
+	for _, label := range []string{" cla: yes", "cla: no ", " cla: yes "} {
+		if !matchesCLAPrLabel(label) {
+			t.Errorf("documented surrounding whitespace not tolerated: %q", label)
+		}
+	}
+}
+func TestReviewAnchor(t *testing.T) {
+	content := "jobs:\n  first:\n    steps:\n      - &cla {uses: contributor-assistant/github-action@v2}\n  second:\n    steps:\n      - *cla\n"
+	found, err := workflowUsesCLAAAction([]byte(content))
+	if !found || err != nil {
+		t.Fatalf("anchor regression %v %v", found, err)
+	}
+}

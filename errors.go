@@ -51,8 +51,34 @@ func (e *Errors) merge(errors Errors) {
 	}
 }
 
+// errors is the ordered list of non-nil per-check errors. It is the single
+// source of truth for Error(), ErrOrNil(), Is(), and As().
+func (e Errors) errors() []error {
+	var errs []error
+	if e.TagErr != nil {
+		errs = append(errs, e.TagErr)
+	}
+	if e.BotFileErr != nil {
+		errs = append(errs, e.BotFileErr)
+	}
+	if e.InContributingErr != nil {
+		errs = append(errs, e.InContributingErr)
+	}
+	if e.InREADMEErr != nil {
+		errs = append(errs, e.InREADMEErr)
+	}
+	if e.ActionErr != nil {
+		errs = append(errs, e.ActionErr)
+	}
+	return errs
+}
+
 func (e Errors) Error() string {
-	lines := []string{}
+	errs := e.errors()
+	if len(errs) == 0 {
+		return "0 error(s) checking for CLA references"
+	}
+	var lines []string
 	if e.TagErr != nil {
 		lines = append(lines, fmt.Sprintf("* checking for CLA tag: %v", e.TagErr))
 	}
@@ -71,9 +97,37 @@ func (e Errors) Error() string {
 	return fmt.Sprintf("%d error(s) checking for CLA references:\n\t%s", len(lines), strings.Join(lines, "\n\t"))
 }
 
+// ErrOrNil returns nil when every heuristic completed, and an error
+// describing the failed heuristics otherwise. The returned error preserves
+// the per-check fields and is inspectable with errors.Is / errors.As: both
+// delegate to every contained per-check error, so a caller can reach the
+// original transport failure, rate-limit error, or sentinel (such as
+// ErrTruncatedTree) without parsing the message.
 func (e *Errors) ErrOrNil() error {
-	if e.TagErr == nil && e.BotFileErr == nil && e.InContributingErr == nil && e.InREADMEErr == nil && e.ActionErr == nil {
+	if len(e.errors()) == 0 {
 		return nil
 	}
 	return e
+}
+
+// Is implements errors.Is for the aggregate: target matches when it matches
+// any of the contained per-check errors (or their own wrapped causes).
+func (e Errors) Is(target error) bool {
+	for _, err := range e.errors() {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
+}
+
+// As implements errors.As for the aggregate: target is filled when any of the
+// contained per-check errors (or their causes) matches it.
+func (e Errors) As(target interface{}) bool {
+	for _, err := range e.errors() {
+		if errors.As(err, target) {
+			return true
+		}
+	}
+	return false
 }

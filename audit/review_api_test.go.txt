@@ -1,0 +1,62 @@
+// Independent second-pass acceptance checks. Run in an isolated copy alongside
+// the model's tests; these add coverage beyond the original audit examples.
+package needcla
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"testing"
+
+	"github.com/google/go-github/v43/github"
+)
+
+func TestReviewAuthenticationClassificationDoesNotDependOnEndpoint(t *testing.T) {
+	for _, endpoint := range []string{
+		"/rate_limit",
+		"/repos/example/project",
+		"/repos/example/project/git/trees/main",
+		"/repos/example/project/pulls",
+	} {
+		t.Run(endpoint, func(t *testing.T) {
+			routes := auditHealthyRoutes(1000)
+			routes[endpoint] = auditReply{status: http.StatusUnauthorized, body: `{"message":"Bad credentials"}`}
+			client, _ := auditClient(routes)
+			_, err := DetailWithContext(context.Background(), client, "example", "project")
+			var apiErr *github.ErrorResponse
+			if !errors.Is(err, ErrInvalidToken) {
+				t.Errorf("401 at %s did not expose ErrInvalidToken: %v", endpoint, err)
+			}
+			if !errors.As(err, &apiErr) || apiErr.Response.StatusCode != http.StatusUnauthorized {
+				t.Errorf("401 at %s lost its original typed GitHub cause: %v", endpoint, err)
+			}
+		})
+	}
+}
+
+// This control verifies that fixes extend to encoded slashes and normal branch
+// names, rather than only the three special cases supplied in the first audit.
+func TestReviewBranchEncodingControls(t *testing.T) {
+	for _, branch := range []string{"main", "release/foo", "release#1", "release%61"} {
+		t.Run(branch, func(t *testing.T) {
+			client := github.NewClient(&http.Client{Transport: reviewRequestFunc(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path != "/repos/example/project/git/trees/"+branch {
+					t.Errorf("decoded path changed branch identity: %q", r.URL.Path)
+				}
+				if r.URL.Fragment != "" || r.URL.Query().Get("recursive") != "1" {
+					t.Errorf("fragment=%q recursive=%q", r.URL.Fragment, r.URL.Query().Get("recursive"))
+				}
+				return (&auditTransport{routes: map[string]auditReply{
+					r.URL.Path: {body: `{"tree":[],"truncated":false}`},
+				}}).RoundTrip(r)
+			})})
+			if _, err := newChecker(context.Background(), client, "example", "project", branch); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+type reviewRequestFunc func(*http.Request) (*http.Response, error)
+
+func (f reviewRequestFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

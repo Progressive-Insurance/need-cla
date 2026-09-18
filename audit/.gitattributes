@@ -1,0 +1,4 @@
+# Preserve captured console output byte-for-byte, including Windows line endings
+# and whitespace emitted by the Go test runner. These are evidence, not source.
+*-results.txt -text -whitespace
+*scan.txt -text -whitespace
